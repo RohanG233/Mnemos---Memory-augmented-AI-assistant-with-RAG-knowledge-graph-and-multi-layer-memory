@@ -1,6 +1,7 @@
 import requests
+from sentence_transformers import SentenceTransformer
 
-
+model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
 N = 6
 messages = []
 
@@ -15,10 +16,13 @@ while True:
     user_input = input("You : ").strip()
     messages.append({"role": "user", "content": user_input})
 
+    query = "".join(msg["content"] for msg in messages if msg["role"] != "system")
+    query_embedding = model.encode(query)
+
     url = "http://localhost:11434/api/chat"
 
     payload = {
-        "model": "llama3.2",
+        "model": "hf.co/bartowski/Llama-3.2-1B-Instruct-GGUF:latest",
         "messages": messages,
         "stream": False
     }
