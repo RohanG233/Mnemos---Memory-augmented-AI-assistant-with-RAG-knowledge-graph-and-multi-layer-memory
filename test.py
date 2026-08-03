@@ -1,5 +1,6 @@
+from langchain_text_splitters import CharacterTextSplitter
 import inspect
-from sentence_transformers import SentenceTransformer
 
-#print(dir(SentenceTransformer))
-print(inspect.getmembers(SentenceTransformer.encode))
+print(inspect.getdoc(CharacterTextSplitter.split_text))
+#help(CharacterTextSplitter)
+#print(dir(CharacterTextSplitter))

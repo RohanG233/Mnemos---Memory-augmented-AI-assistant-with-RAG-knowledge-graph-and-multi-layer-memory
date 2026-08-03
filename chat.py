@@ -1,9 +1,40 @@
 import requests
 from sentence_transformers import SentenceTransformer
+import chromadb
+from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
+chroma_client = chromadb.PersistentClient(path="./chroma_db")
+embedding_function = SentenceTransformerEmbeddingFunction(
+    model_name="all-MiniLM-L6-v2"
+)
 model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
+
+# Load Text File
+with open("spider.txt", "r", encoding="utf-8") as file:
+    text = file.read()
+
+
 N = 6
 messages = []
+collection = chroma_client.get_or_create_collection(name="documents", embedding_function=embedding_function)
+
+# Chunking
+splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=70)
+chunks = splitter.split_text(text)
+
+# Store it in Chroma DB
+collection.add(
+    ids=[f"chunk_{i}" for i in range(len(chunks))],
+    documents=chunks,
+    metadatas=[
+        {
+            "source": "spider.txt",
+            "chunk": i
+        }
+        for i in range(len(chunks))
+    ]
+)
 
 persona = {
   "role": "system",
