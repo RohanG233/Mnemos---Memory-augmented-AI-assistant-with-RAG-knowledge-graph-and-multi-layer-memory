@@ -1,6 +1,16 @@
-from langchain_text_splitters import CharacterTextSplitter
+import faiss
 import inspect
 
-print(inspect.getdoc(CharacterTextSplitter.split_text))
-#help(CharacterTextSplitter)
-#print(dir(CharacterTextSplitter))
+print(dir(faiss))
+
+
+
+# for name, obj in inspect.getmembers(retriever):
+#     if inspect.isfunction(obj):
+#         print(name)
+
+#print(inspect.signature())
+
+# for name, obj in inspect.getmembers(bm25s, inspect.isfunction):
+#     print(f"{name}{inspect.signature(obj)}")
+
