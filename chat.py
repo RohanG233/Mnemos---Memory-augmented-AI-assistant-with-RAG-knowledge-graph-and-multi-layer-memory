@@ -17,7 +17,12 @@ with open("spider.txt", "r", encoding="utf-8") as file:
 
 N = 6
 messages = []
+conversation_summary = ""
 collection = chroma_client.get_or_create_collection(name="documents", embedding_function=embedding_function)
+memory_collection = chroma_client.get_or_create_collection(
+    name="memory",
+    embedding_function=embedding_function
+)
 
 # Chunking
 splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=70)
@@ -78,11 +83,17 @@ while True:
     user_input = input("You : ").strip()
     messages.append({"role": "user", "content": user_input})
 
-    query = " ".join(
-        msg["content"]
-        for msg in messages
-        if msg["role"] != "system"
-    )
+    query = user_input
+
+    retrieved_memories = []
+    # Generate embedding for memory search
+    query_embedding = model.encode(query)
+    if memory_collection.count() > 0:
+        memory_results = memory_collection.query(
+            query_embeddings=[query_embedding.tolist()],
+            n_results=3
+        )
+        retrieved_memories = memory_results["documents"][0]
 
     query_tokens = bm25s.tokenize(
         query,
@@ -96,7 +107,6 @@ while True:
 
     bm25_doc_ids = bm25_results[0].tolist()
 
-    query_embedding = model.encode(query)
     results = collection.query(
         query_embeddings=[query_embedding.tolist()],
         n_results=5
@@ -121,20 +131,149 @@ while True:
     for doc_id, score in rrf_results[:TOP_K]:
         retrieved_chunks.append(chunks[doc_id])
 
+
+    context = ""
+
+    for i, chunk in enumerate(retrieved_chunks, start=1):
+        context += f"[Document {i}]\n{chunk}\n\n"
+
+
+    memory_context = ""
+
+    for i, memory in enumerate(retrieved_memories, start=1):
+        memory_context += f"[Memory {i}]\n{memory}\n\n"
+
+    # system_prompt = f"""
+    # You are a helpful, knowledgeable, and reliable AI assistant.
+
+    # Answer the user's question using the retrieved documents below.
+
+    # Rules:
+    # - Use the documents whenever they contain the answer.
+    # - If the documents do not contain enough information, say you don't know.
+    # - Do not invent facts.
+    # - If useful, combine information from multiple documents.
+
+    # Retrieved Documents:
+
+    # {context}
+    # """
+
+    system_prompt = f"""
+    You are a helpful, knowledgeable, and reliable AI assistant.
+
+    Answer the user's question using the retrieved documents below.
+
+    Rules:
+    Answer ONLY using the retrieved documents.
+    Do NOT use your own knowledge.
+    If the answer cannot be found explicitly in the documents, respond exactly:
+    "I don't know based on the provided documents."
+    Do not infer or correct facts that are not present in the documents.
+    
+    Conversation Summary:
+    {conversation_summary}
+
+    Relevant Memories:
+    {memory_context}
+
+    Retrieved Documents:
+    {context}
+    """
+
+    prompt_messages = [
+        {
+            "role": "system",
+            "content": system_prompt
+        }
+    ]
+
+    # Add conversation history (skip the old system prompt)
+    prompt_messages.extend(messages[1:])
+
+    # print("\nRetrieved Documents:\n")
+
+    # for i, chunk in enumerate(retrieved_chunks, start=1):
+    #     print(f"Document {i}")
+    #     print(chunk)
+    #     print("-" * 50)
+    
     url = "http://localhost:11434/api/chat"
 
     payload = {
         "model": "hf.co/bartowski/Llama-3.2-1B-Instruct-GGUF:latest",
-        "messages": messages,
+        "messages": prompt_messages,
         "stream": False
     }
 
-    if(len(messages) > 1 + N * 2):
-        messages.pop(1)
-        messages.pop(1)
 
     response = requests.post(url, json=payload)
     data = response.json()
     assistant_reply = data["message"]["content"]
     print("Assistant : ", assistant_reply)
     messages.append({"role":"assistant", "content":assistant_reply})
+
+    if len(messages) > 1 + N * 2:
+        old_messages = messages[1:-N]
+        summary_messages = [
+            {
+                "role": "system",
+                "content":
+                    f"""
+                    Current Summary:
+                    {conversation_summary}
+
+                    Update the summary using the new conversation.
+                    Keep it under 8 sentences.
+                    Preserve important user facts, goals, preferences and decisions.
+                    """
+            }
+        ]
+
+        summary_messages.extend(old_messages)
+        summary_payload = {
+            "model": "hf.co/bartowski/Llama-3.2-1B-Instruct-GGUF:latest",
+            "messages": summary_messages,
+            "stream": False
+        }
+
+        summary_response = requests.post(
+            url,
+            json=summary_payload
+        )
+        conversation_summary = summary_response.json()["message"]["content"]
+        del messages[1:-N]
+
+
+    conversation = f"""
+    User: {user_input}
+
+    Assistant: {assistant_reply}
+    """
+
+    keywords = [
+        "my name",
+        "i like",
+        "i prefer",
+        "i use",
+        "i am",
+        "my favorite"
+    ]
+
+    should_store = any(
+        keyword in user_input.lower()
+        for keyword in keywords
+    )
+
+    if should_store:
+        import uuid
+
+        memory_collection.add(
+            ids=[str(uuid.uuid4())],
+            documents=[user_input],
+            metadatas=[
+                {
+                    "source": "conversation"
+                }
+            ]
+        )
