@@ -24,6 +24,16 @@ memory_collection = chroma_client.get_or_create_collection(
     embedding_function=embedding_function
 )
 
+episode_collection = chroma_client.get_or_create_collection(
+    name="episodes",
+    embedding_function=embedding_function
+)
+
+procedure_collection = chroma_client.get_or_create_collection(
+    name="procedures",
+    embedding_function=embedding_function
+)
+
 # Chunking
 splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=70)
 chunks = splitter.split_text(text)
@@ -85,15 +95,48 @@ while True:
 
     query = user_input
 
-    retrieved_memories = []
+#----------------- Retrieval Phase -----------------------
     # Generate embedding for memory search
     query_embedding = model.encode(query)
+
+
+        # ---------------- Semantic Memory ----------------
+
+    retrieved_memories = []
+
     if memory_collection.count() > 0:
         memory_results = memory_collection.query(
             query_embeddings=[query_embedding.tolist()],
             n_results=3
         )
+
         retrieved_memories = memory_results["documents"][0]
+
+
+    # ---------------- Episodic Memory ----------------
+
+    retrieved_episodes = []
+
+    if episode_collection.count() > 0:
+        episode_results = episode_collection.query(
+            query_embeddings=[query_embedding.tolist()],
+            n_results=3
+        )
+
+        retrieved_episodes = episode_results["documents"][0]
+
+
+    # ---------------- Procedural Memory ----------------
+
+    retrieved_procedures = []
+
+    if procedure_collection.count() > 0:
+        procedure_results = procedure_collection.query(
+            query_embeddings=[query_embedding.tolist()],
+            n_results=3
+        )
+
+        retrieved_procedures = procedure_results["documents"][0]
 
     query_tokens = bm25s.tokenize(
         query,
@@ -107,6 +150,7 @@ while True:
 
     bm25_doc_ids = bm25_results[0].tolist()
 
+    # Vector HNSW Retrieval
     results = collection.query(
         query_embeddings=[query_embedding.tolist()],
         n_results=5
@@ -126,22 +170,28 @@ while True:
 
     TOP_K = 5
 
+    # Chunks based on RRF
     retrieved_chunks = []
 
     for doc_id, score in rrf_results[:TOP_K]:
         retrieved_chunks.append(chunks[doc_id])
 
-
+# --------------- Context Building ---------------------
     context = ""
-
     for i, chunk in enumerate(retrieved_chunks, start=1):
         context += f"[Document {i}]\n{chunk}\n\n"
 
-
     memory_context = ""
-
     for i, memory in enumerate(retrieved_memories, start=1):
         memory_context += f"[Memory {i}]\n{memory}\n\n"
+
+    episode_context = ""
+    for i, episode in enumerate(retrieved_episodes, start=1):
+        episode_context += f"[Episode {i}]\n{episode}\n\n"
+
+    procedure_context = ""
+    for i, procedure in enumerate(retrieved_procedures, start=1):
+        procedure_context += f"[Procedure {i}]\n{procedure}\n\n"
 
     # system_prompt = f"""
     # You are a helpful, knowledgeable, and reliable AI assistant.
@@ -159,26 +209,24 @@ while True:
     # {context}
     # """
 
+# ----------- Response Generation ---------------
     system_prompt = f"""
     You are a helpful, knowledgeable, and reliable AI assistant.
 
-    Answer the user's question using the retrieved documents below.
+    Use the following sources in order:
+
+    1. Conversation Summary : {conversation_summary}
+    2. Procedural Memory : {procedure_context}
+    3. Relevant Episodes : {episode_context}
+    4. Relevant Semantic Memories : {memory_context}
+    5. Retrieved Documents : {context}
 
     Rules:
-    Answer ONLY using the retrieved documents.
-    Do NOT use your own knowledge.
-    If the answer cannot be found explicitly in the documents, respond exactly:
-    "I don't know based on the provided documents."
-    Do not infer or correct facts that are not present in the documents.
-    
-    Conversation Summary:
-    {conversation_summary}
-
-    Relevant Memories:
-    {memory_context}
-
-    Retrieved Documents:
-    {context}
+    - Use conversation memories when the user asks about previous conversations, personal preferences, or past decisions.
+    - Use the retrieved documents when answering questions about the knowledge base.
+    - If neither the memories nor the retrieved documents contain the answer, respond:
+    "I don't know based on the available context."
+    - Do not invent facts.
     """
 
     prompt_messages = [
@@ -213,6 +261,7 @@ while True:
     print("Assistant : ", assistant_reply)
     messages.append({"role":"assistant", "content":assistant_reply})
 
+# ---------------Short Term Memory Management ---------------
     if len(messages) > 1 + N * 2:
         old_messages = messages[1:-N]
         summary_messages = [
@@ -247,22 +296,48 @@ while True:
 
     conversation = f"""
     User: {user_input}
-
     Assistant: {assistant_reply}
     """
+# -----------------Long Term Memory Management -------------
+# Semantic Memory
+    semantic_prompt = f"""
+    Should the following user message be stored as long-term semantic memory?
 
-    keywords = [
-        "my name",
-        "i like",
-        "i prefer",
-        "i use",
-        "i am",
-        "my favorite"
-    ]
+    Store only if it contains:
+    - personal facts
+    - preferences
+    - long-term goals
+    - stable information
 
-    should_store = any(
-        keyword in user_input.lower()
-        for keyword in keywords
+    Reply with ONLY:
+    Yes
+    or
+    No
+
+    User:
+    {user_input}
+    """
+
+    semantic_payload = {
+        "model": "hf.co/bartowski/Llama-3.2-1B-Instruct-GGUF:latest",
+        "messages": [
+            {
+                "role": "system",
+                "content": semantic_prompt
+            }
+        ],
+        "stream": False
+    }
+
+    semantic_response = requests.post(
+        url,
+        json=semantic_payload
+    )
+
+    should_store = (
+        semantic_response.json()["message"]["content"]
+        .strip()
+        .lower() == "yes"
     )
 
     if should_store:
@@ -274,6 +349,147 @@ while True:
             metadatas=[
                 {
                     "source": "conversation"
+                }
+            ]
+        )
+
+# Episodic Memory
+    episode_check_prompt = f"""
+    Should this conversation be stored as an episodic memory?
+
+    Store only if:
+    - something was learned
+    - a decision was made
+    - a problem was solved
+    - an important discussion happened
+
+    Reply ONLY:
+    Yes
+    or
+    No
+
+    Conversation:
+
+    User:
+    {user_input}
+
+    Assistant:
+    {assistant_reply}
+    """
+
+    episode_check_payload = {
+        "model": "hf.co/bartowski/Llama-3.2-1B-Instruct-GGUF:latest",
+        "messages": [
+            {
+                "role": "system",
+                "content": episode_check_prompt
+            }
+        ],
+        "stream": False
+    }
+
+    episode_check = requests.post(
+        url,
+        json=episode_check_payload
+    )
+
+    store_episode = (
+        episode_check.json()["message"]["content"]
+        .strip()
+        .lower() == "yes"
+    )
+
+    if store_episode:
+        episode_prompt = f"""
+        Summarize this interaction as an episodic memory.
+
+        Conversation:
+
+        User:
+        {user_input}
+
+        Assistant:
+        {assistant_reply}
+
+        Keep it under 4 sentences.
+        Include:
+        - what the user wanted
+        - what was learned
+        - any decision made
+        """
+
+        episode_payload = {
+            "model": "hf.co/bartowski/Llama-3.2-1B-Instruct-GGUF:latest",
+            "messages": [
+                {
+                    "role": "system",
+                    "content": episode_prompt
+                }
+            ],
+            "stream": False
+        }
+
+        episode_response = requests.post(
+            url,
+            json=episode_payload
+        )
+
+        episode_summary = episode_response.json()["message"]["content"]
+
+        episode_collection.add(
+            ids=[str(uuid.uuid4())],
+            documents=[episode_summary],
+            metadatas=[
+                {
+                    "source": "conversation"
+                }
+            ]
+        )
+
+# Procedural Memory
+    procedure_prompt = f"""
+    Should this user message be stored as procedural memory?
+
+    Store only if it is a long-term instruction for how the assistant should behave.
+
+    Reply ONLY:
+
+    Yes or No
+
+    User:
+    {user_input}
+    """
+
+    procedure_payload = {
+        "model": "hf.co/bartowski/Llama-3.2-1B-Instruct-GGUF:latest",
+        "messages": [
+            {
+                "role": "system",
+                "content": procedure_prompt
+            }
+        ],
+        "stream": False
+    }
+
+    procedure_response = requests.post(
+        url,
+        json=procedure_payload
+    )
+
+    should_store_procedure = (
+        procedure_response.json()["message"]["content"]
+        .strip()
+        .lower() == "yes"
+    )
+
+    if should_store_procedure:
+
+        procedure_collection.add(
+            ids=[str(uuid.uuid4())],
+            documents=[user_input],
+            metadatas=[
+                {
+                    "source": "user_instruction"
                 }
             ]
         )
