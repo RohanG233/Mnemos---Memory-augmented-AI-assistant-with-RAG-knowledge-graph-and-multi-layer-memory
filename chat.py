@@ -3,6 +3,9 @@ from sentence_transformers import SentenceTransformer
 import chromadb
 from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+import math
+import time
+import uuid
 
 chroma_client = chromadb.PersistentClient(path="./chroma_db")
 embedding_function = SentenceTransformerEmbeddingFunction(
@@ -88,9 +91,132 @@ def reciprocal_rank_fusion(rankings, k=60):
         reverse=True
     )
 
+def maintain_memories(collection):
+    now = time.time()
+
+    results = collection.get(
+        include=["metadatas"]
+    )
+
+    ids = results["ids"]
+    metadatas = results["metadatas"]
+
+    for memory_id, metadata in zip(ids, metadatas):
+
+        importance = metadata.get("importance", 0.5)
+        last_accessed = metadata.get("last_accessed", now)
+        access_count = metadata.get("access_count", 0)
+
+        age_days = (now - last_accessed) / 86400
+
+        # Recency decay
+        recency = math.exp(-0.05 * age_days)
+
+        # Usage reinforcement
+        usage = min(1.0, math.log1p(access_count) / 5)
+
+        # Final memory strength
+        score = (
+            0.5 * importance +
+            0.3 * recency +
+            0.2 * usage
+        )
+
+        if score < 0.15:
+
+            print(
+                f"FORGOTTEN: {memory_id} | "
+                f"score={score:.3f}"
+            )
+
+            collection.delete(
+                ids=[memory_id]
+            )
+
+        else:
+
+            collection.update(
+                ids=[memory_id],
+                metadatas=[
+                    {
+                        **metadata,
+                        "memory_score": score
+                    }
+                ]
+            )
+
+def reinforce_memories(collection, query_embedding, n_results=3):
+
+    if collection.count() == 0:
+        return []
+
+    results = collection.query(
+        query_embeddings=[query_embedding.tolist()],
+        n_results=min(n_results, collection.count())
+    )
+
+    retrieved_documents = results["documents"][0]
+    memory_ids = results["ids"][0]
+
+    now = time.time()
+
+    for memory_id in memory_ids:
+
+        memory_data = collection.get(
+            ids=[memory_id],
+            include=["metadatas"]
+        )
+
+        metadata = memory_data["metadatas"][0]
+
+        access_count = metadata.get("access_count", 0)
+
+        collection.update(
+            ids=[memory_id],
+            metadatas=[
+                {
+                    **metadata,
+                    "access_count": access_count + 1,
+                    "last_accessed": now
+                }
+            ]
+        )
+
+    return retrieved_documents
+
+def find_similar_memory(collection, text, threshold=0.20):
+
+    if collection.count() == 0:
+        return None
+
+    embedding = model.encode(text)
+
+    results = collection.query(
+        query_embeddings=[embedding.tolist()],
+        n_results=1,
+        include=["documents", "metadatas", "distances"]
+    )
+
+    if not results["ids"][0]:
+        return None
+
+    distance = results["distances"][0][0]
+
+    if distance <= threshold:
+        return {
+            "id": results["ids"][0][0],
+            "document": results["documents"][0][0],
+            "metadata": results["metadatas"][0],
+            "distance": distance
+        }
+
+    return None
+
+conversation_count = 0
 
 while True:
     user_input = input("You : ").strip()
+    conversation_count += 1
     messages.append({"role": "user", "content": user_input})
 
     query = user_input
@@ -105,25 +231,23 @@ while True:
     retrieved_memories = []
 
     if memory_collection.count() > 0:
-        memory_results = memory_collection.query(
-            query_embeddings=[query_embedding.tolist()],
+        retrieved_memories = reinforce_memories(
+            memory_collection,
+            query_embedding,
             n_results=3
         )
-
-        retrieved_memories = memory_results["documents"][0]
-
 
     # ---------------- Episodic Memory ----------------
 
     retrieved_episodes = []
 
     if episode_collection.count() > 0:
-        episode_results = episode_collection.query(
-            query_embeddings=[query_embedding.tolist()],
-            n_results=3
-        )
 
-        retrieved_episodes = episode_results["documents"][0]
+        retrieved_episodes = reinforce_memories(
+                episode_collection,
+                query_embedding,
+                n_results=3
+            )
 
 
     # ---------------- Procedural Memory ----------------
@@ -131,12 +255,12 @@ while True:
     retrieved_procedures = []
 
     if procedure_collection.count() > 0:
-        procedure_results = procedure_collection.query(
-            query_embeddings=[query_embedding.tolist()],
+        
+        retrieved_procedures = reinforce_memories(
+            procedure_collection,
+            query_embedding,
             n_results=3
         )
-
-        retrieved_procedures = procedure_results["documents"][0]
 
     query_tokens = bm25s.tokenize(
         query,
@@ -294,14 +418,12 @@ while True:
         del messages[1:-N]
 
 
-    conversation = f"""
-    User: {user_input}
-    Assistant: {assistant_reply}
-    """
 # -----------------Long Term Memory Management -------------
 # Semantic Memory
     semantic_prompt = f"""
-    Should the following user message be stored as long-term semantic memory?
+    Analyze the following user message.
+
+    Decide whether it should be stored as long-term semantic memory.
 
     Store only if it contains:
     - personal facts
@@ -309,10 +431,16 @@ while True:
     - long-term goals
     - stable information
 
-    Reply with ONLY:
-    Yes
+    If it should be stored, also assign an importance score from 0.0 to 1.0.
+
+    Reply ONLY in this format:
+
+    STORE: Yes
+    IMPORTANCE: 0.0
+
     or
-    No
+
+    STORE: No
 
     User:
     {user_input}
@@ -334,41 +462,74 @@ while True:
         json=semantic_payload
     )
 
-    should_store = (
-        semantic_response.json()["message"]["content"]
-        .strip()
-        .lower() == "yes"
-    )
+    semantic_result = semantic_response.json()["message"]["content"].strip()
+
+    should_store = "STORE: Yes" in semantic_result
+
+    importance = 0.5
 
     if should_store:
-        import uuid
+        for line in semantic_result.splitlines():
+            if line.startswith("IMPORTANCE:"):
+                try:
+                    importance = float(line.split(":")[1].strip())
+                    importance = max(0.0, min(1.0, importance))
+                except ValueError:
+                    importance = 0.5
 
-        memory_collection.add(
-            ids=[str(uuid.uuid4())],
-            documents=[user_input],
-            metadatas=[
-                {
-                    "source": "conversation"
-                }
-            ]
+    if should_store:
+        similar_memory = find_similar_memory(
+            memory_collection,
+            user_input
         )
+
+        if similar_memory:
+
+            print("Duplicate/similar memory detected:")
+            print(similar_memory["document"])
+
+        else:
+            memory_id = str(uuid.uuid4())
+            now = time.time()
+
+            memory_collection.add(
+                ids=[memory_id],
+                documents=[user_input],
+                metadatas=[
+                    {
+                        "source": "conversation",
+                        "created_at": now,
+                        "last_accessed": now,
+                        "access_count": 0,
+                        "importance": importance
+                    }
+                ]
+            )
 
 # Episodic Memory
     episode_check_prompt = f"""
-    Should this conversation be stored as an episodic memory?
+    Decide whether this interaction is important enough to store
+    as episodic memory.
 
-    Store only if:
-    - something was learned
-    - a decision was made
-    - a problem was solved
-    - an important discussion happened
+    Store it ONLY if at least one is true:
+    - A meaningful decision was made.
+    - A problem was solved.
+    - The user learned something important.
+    - A project/task milestone was reached.
+    - A significant plan or conclusion was established.
+
+    Do NOT store:
+    - Simple questions and answers.
+    - Greetings.
+    - Repeated facts.
+    - Small conversational exchanges.
+    - Requests to remember a fact (those belong to semantic memory).
+    - Temporary opinions.
 
     Reply ONLY:
     Yes
     or
     No
-
-    Conversation:
 
     User:
     {user_input}
@@ -401,21 +562,23 @@ while True:
 
     if store_episode:
         episode_prompt = f"""
-        Summarize this interaction as an episodic memory.
+        Create a concise episodic memory from this interaction.
 
-        Conversation:
+        Rules:
+        - Describe the event from a neutral third-person perspective.
+        - Do NOT use "I", "me", "my", "we", or "assistant".
+        - Do NOT invent information.
+        - Do NOT include unnecessary conversational details.
+        - Focus on what happened, what was learned, and what decision was made.
+        - Maximum 3 sentences.
+
+        Return ONLY the episodic memory.
 
         User:
         {user_input}
 
         Assistant:
         {assistant_reply}
-
-        Keep it under 4 sentences.
-        Include:
-        - what the user wanted
-        - what was learned
-        - any decision made
         """
 
         episode_payload = {
@@ -435,16 +598,34 @@ while True:
         )
 
         episode_summary = episode_response.json()["message"]["content"]
-
-        episode_collection.add(
-            ids=[str(uuid.uuid4())],
-            documents=[episode_summary],
-            metadatas=[
-                {
-                    "source": "conversation"
-                }
-            ]
+        similar_episode = find_similar_memory(
+            episode_collection,
+            episode_summary
         )
+
+        if similar_episode:
+
+            print("\nDuplicate episode detected:")
+            print(similar_episode["document"])
+            print("Distance:", similar_episode["distance"])
+
+        else:
+            episode_id = str(uuid.uuid4())
+            now = time.time()
+
+            episode_collection.add(
+                ids=[episode_id],
+                documents=[episode_summary],
+                metadatas=[
+                    {
+                        "source": "conversation",
+                        "created_at": now,
+                        "last_accessed": now,
+                        "access_count": 0,
+                        "importance": 0.7
+                    }
+                ]
+            )
 
 # Procedural Memory
     procedure_prompt = f"""
@@ -483,13 +664,33 @@ while True:
     )
 
     if should_store_procedure:
-
-        procedure_collection.add(
-            ids=[str(uuid.uuid4())],
-            documents=[user_input],
-            metadatas=[
-                {
-                    "source": "user_instruction"
-                }
-            ]
+        similar_procedure = find_similar_memory(
+            procedure_collection,
+            user_input
         )
+
+        if similar_procedure:
+            print("\nDuplicate procedure detected:")
+            print(similar_procedure["document"])
+            print("Distance:", similar_procedure["distance"])
+        else:
+            procedure_id = str(uuid.uuid4())
+            now = time.time()
+
+            procedure_collection.add(
+                ids=[procedure_id],
+                documents=[user_input],
+                metadatas=[
+                    {
+                        "source": "user_instruction",
+                        "created_at": now,
+                        "last_accessed": now,
+                        "access_count": 0,
+                        "importance": 1.0
+                    }
+                ]
+            )
+
+    if conversation_count % 10 == 0:
+        maintain_memories(memory_collection)
+        maintain_memories(episode_collection)
