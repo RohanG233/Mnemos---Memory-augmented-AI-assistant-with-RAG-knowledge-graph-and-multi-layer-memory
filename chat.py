@@ -10,6 +10,7 @@ import json
 import os
 import re
 import networkx as nx
+import webbrowser
 from pyvis.network import Network  # only needed if you'll call show_graph()
 
 chroma_client = chromadb.PersistentClient(path="./chroma_db")
@@ -40,12 +41,24 @@ def load_graph():
     return nx.MultiDiGraph()
 
 
+def show_graph(path="graph.html"):
+    net = Network(height="750px", width="100%", directed=True,
+                  bgcolor="#12141a", font_color="#e8eaf0")
+    net.from_nx(graph)
+    for edge in net.edges:
+        edge['label'] = edge.get('relation', '')
+    net.show_buttons(filter_=['physics'])
+    net.write_html(path, notebook=False, open_browser=False)
+    webbrowser.open(os.path.abspath(path))
+
+
 
 N = 6
 messages = []
 conversation_summary = ""
 collection = chroma_client.get_or_create_collection(name="documents", embedding_function=embedding_function)
 graph = load_graph()
+
 memory_collection = chroma_client.get_or_create_collection(
     name="memory",
     embedding_function=embedding_function
@@ -98,8 +111,19 @@ def _coerce_str(val):
 
 EXTRACT_PROMPT = """Extract factual triples from the text below.
 Return ONLY a JSON array of objects with keys "subject", "relation", "object".
+Each triple must come from a single clear statement in the text.
+Do not guess or combine information across different sentences.
+If unsure which entity a relation refers to, skip that triple entirely.
 Text:
 {text}"""
+
+def extract_triples_from_text(text):
+    sentences = re.split(r'(?<=[.!?])\s+', text.strip())
+    all_triples = []
+    for sentence in sentences:
+        if sentence.strip():
+            all_triples.extend(extract_triples(sentence))
+    return all_triples
 
 def extract_triples(text):
     payload = {
@@ -150,7 +174,7 @@ if collection.count() == 0:
 
 if len(graph.nodes) == 0:
     for chunk in chunks:
-        for t in extract_triples(chunk):
+        for t in extract_triples_from_text(chunk):
             s, r_, o = t.get('subject'), t.get('relation'), t.get('object')
             if s and r_ and o:
                 add_triple(s, r_, o)
@@ -316,6 +340,12 @@ conversation_count = 0
 while True:
     user_input = input("You : ").strip()
     conversation_count += 1
+
+    if user_input.lower() == "/graph":
+        show_graph()
+        print(f"Graph has {len(graph.nodes)} nodes, {graph.number_of_edges()} edges — opened graph.html")
+        continue
+
     messages.append({"role": "user", "content": user_input})
 
     query = user_input
@@ -488,6 +518,17 @@ while True:
     assistant_reply = data["message"]["content"]
     print("Assistant : ", assistant_reply)
     messages.append({"role":"assistant", "content":assistant_reply})
+
+
+    # ---------------- Evolving Conversational Graph ----------------
+    turn_text = f"User said: {user_input}\nAssistant replied: {assistant_reply}"
+
+    for t in extract_triples_from_text(user_input):
+        s, r_, o = t.get('subject'), t.get('relation'), t.get('object')
+        if s and r_ and o:
+            add_triple(s, r_, o)
+
+    save_graph()
 
 # ---------------Short Term Memory Management ---------------
     if len(messages) > 1 + N * 2:
