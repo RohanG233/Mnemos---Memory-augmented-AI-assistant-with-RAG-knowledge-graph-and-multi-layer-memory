@@ -6,6 +6,11 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 import math
 import time
 import uuid
+import json
+import os
+import re
+import networkx as nx
+from pyvis.network import Network  # only needed if you'll call show_graph()
 
 chroma_client = chromadb.PersistentClient(path="./chroma_db")
 embedding_function = SentenceTransformerEmbeddingFunction(
@@ -18,10 +23,29 @@ with open("spider.txt", "r", encoding="utf-8") as file:
     text = file.read()
 
 
+
+
+GRAPH_PATH = "./graph.json"
+
+def save_graph():
+    data = nx.node_link_data(graph, edges="edges")
+    with open(GRAPH_PATH, "w") as f:
+        json.dump(data, f)
+
+def load_graph():
+    if os.path.exists(GRAPH_PATH):
+        with open(GRAPH_PATH, "r") as f:
+            data = json.load(f)
+        return nx.node_link_graph(data, edges="edges", multigraph=True, directed=True)
+    return nx.MultiDiGraph()
+
+
+
 N = 6
 messages = []
 conversation_summary = ""
 collection = chroma_client.get_or_create_collection(name="documents", embedding_function=embedding_function)
+graph = load_graph()
 memory_collection = chroma_client.get_or_create_collection(
     name="memory",
     embedding_function=embedding_function
@@ -55,6 +79,60 @@ corpus_tokens = bm25s.tokenize(
 bm25 = bm25s.BM25()
 bm25.index(corpus_tokens)
 
+url = "http://localhost:11434/api/chat"
+
+
+def normalize(name):
+    return name.strip().lower()
+
+def _coerce_str(val):
+    """Small models sometimes return a list instead of a string for a triple
+    field (e.g. object: ["Chroma", "decay formula"]). Flatten it instead of
+    crashing."""
+    if isinstance(val, list):
+        return ", ".join(str(v) for v in val if v)
+    if val is None:
+        return ""
+    return str(val)
+
+
+EXTRACT_PROMPT = """Extract factual triples from the text below.
+Return ONLY a JSON array of objects with keys "subject", "relation", "object".
+Text:
+{text}"""
+
+def extract_triples(text):
+    payload = {
+        "model": "hf.co/bartowski/Llama-3.2-1B-Instruct-GGUF:latest",
+        "messages": [{"role": "user", "content": EXTRACT_PROMPT.format(text=text)}],
+        "stream": False,
+        "format": "json"
+    }
+    r = requests.post(url, json=payload)
+    content = r.json()["message"]["content"]
+    try:
+        result = json.loads(content)
+    except json.JSONDecodeError:
+        return []
+    if isinstance(result, dict):
+        return [result]
+    if isinstance(result, list):
+        return result
+    return []
+
+
+def add_triple(subject, relation, obj):
+    subject = _coerce_str(subject)
+    relation = _coerce_str(relation)
+    obj = _coerce_str(obj)
+    if not subject or not relation or not obj:
+        return  # nothing usable after coercion
+
+    s, o = normalize(subject), normalize(obj)
+    if not graph.has_edge(s, o, key=relation):
+        graph.add_edge(s, o, key=relation, relation=relation)
+
+
 # Store it in Chroma DB
 if collection.count() == 0:
     collection.add(
@@ -68,6 +146,16 @@ if collection.count() == 0:
             for i in range(len(chunks))
         ]
     )
+
+
+if len(graph.nodes) == 0:
+    for chunk in chunks:
+        for t in extract_triples(chunk):
+            s, r_, o = t.get('subject'), t.get('relation'), t.get('object')
+            if s and r_ and o:
+                add_triple(s, r_, o)
+    save_graph()
+
 
 persona = {
   "role": "system",
@@ -212,6 +300,17 @@ def find_similar_memory(collection, text, threshold=0.20):
 
     return None
 
+
+def graph_context(query, hops=2):
+    q = query.lower()
+    entities = [n for n in graph.nodes if re.search(rf'\b{re.escape(n)}\b', q)]
+    facts = []
+    for entity in entities:
+        neighborhood = nx.ego_graph(graph, entity, radius=hops)
+        for u, v, data in neighborhood.edges(data=True):
+            facts.append(f"{u} {data['relation']} {v}")
+    return facts
+
 conversation_count = 0
 
 while True:
@@ -292,6 +391,9 @@ while True:
         ]
     )
 
+    graph_facts = graph_context(query, hops=2)
+
+
     TOP_K = 5
 
     # Chunks based on RRF
@@ -316,6 +418,10 @@ while True:
     procedure_context = ""
     for i, procedure in enumerate(retrieved_procedures, start=1):
         procedure_context += f"[Procedure {i}]\n{procedure}\n\n"
+
+    graph_fact_context = ""
+    for i, fact in enumerate(graph_facts, start=1):
+        graph_fact_context += f"[Graph Fact {i}]\n{fact}\n\n"
 
     # system_prompt = f"""
     # You are a helpful, knowledgeable, and reliable AI assistant.
@@ -369,8 +475,6 @@ while True:
     #     print(f"Document {i}")
     #     print(chunk)
     #     print("-" * 50)
-    
-    url = "http://localhost:11434/api/chat"
 
     payload = {
         "model": "hf.co/bartowski/Llama-3.2-1B-Instruct-GGUF:latest",
