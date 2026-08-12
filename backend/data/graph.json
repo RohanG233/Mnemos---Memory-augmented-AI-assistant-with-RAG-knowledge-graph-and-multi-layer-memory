@@ -1,0 +1,267 @@
+{
+  "directed": true,
+  "multigraph": true,
+  "graph": {},
+  "nodes": [
+    {
+      "id": "spider-man"
+    },
+    {
+      "id": "fictional"
+    },
+    {
+      "id": "amazing fantasy"
+    },
+    {
+      "id": "in 1962"
+    },
+    {
+      "id": "peter parker"
+    },
+    {
+      "id": "a young man"
+    },
+    {
+      "id": "peter"
+    },
+    {
+      "id": "superhuman strength"
+    },
+    {
+      "id": "instinct"
+    },
+    {
+      "id": "system"
+    },
+    {
+      "id": "balance"
+    },
+    {
+      "id": "uncle ben"
+    },
+    {
+      "id": "initially"
+    },
+    {
+      "id": "an opportunity"
+    },
+    {
+      "id": "criminal"
+    },
+    {
+      "id": "new york city"
+    },
+    {
+      "id": "green goblin"
+    },
+    {
+      "id": "doctor octopus"
+    },
+    {
+      "id": "villains"
+    },
+    {
+      "id": "unique challenges"
+    },
+    {
+      "id": "a gifted scientist"
+    },
+    {
+      "id": "chemistry"
+    },
+    {
+      "id": "advanced web fluid"
+    },
+    {
+      "id": "his"
+    },
+    {
+      "id": "financial struggles"
+    },
+    {
+      "id": "of the avengers"
+    },
+    {
+      "id": "iron man"
+    },
+    {
+      "id": "heroes"
+    },
+    {
+      "id": "appeared"
+    },
+    {
+      "id": "spider-man noir"
+    },
+    {
+      "id": "characters"
+    },
+    {
+      "id": "through"
+    },
+    {
+      "id": "one"
+    },
+    {
+      "id": "everyday problems"
+    },
+    {
+      "id": "story"
+    },
+    {
+      "id": "perseverance"
+    },
+    {
+      "id": "document"
+    },
+    {
+      "id": "it"
+    }
+  ],
+  "edges": [
+    {
+      "relation": "is a",
+      "source": "spider-man",
+      "target": "fictional",
+      "key": "is a"
+    },
+    {
+      "relation": "protects",
+      "source": "spider-man",
+      "target": "new york city",
+      "key": "protects"
+    },
+    {
+      "relation": "is a member",
+      "source": "spider-man",
+      "target": "of the avengers",
+      "key": "is a member"
+    },
+    {
+      "relation": "versions",
+      "source": "spider-man",
+      "target": "appeared",
+      "key": "versions"
+    },
+    {
+      "relation": "Alternate Spider-Personnel",
+      "source": "spider-man",
+      "target": "spider-man noir",
+      "key": "Alternate Spider-Personnel"
+    },
+    {
+      "relation": "remains",
+      "source": "spider-man",
+      "target": "one",
+      "key": "remains"
+    },
+    {
+      "relation": "first appearance",
+      "source": "amazing fantasy",
+      "target": "in 1962",
+      "key": "first appearance"
+    },
+    {
+      "relation": "is",
+      "source": "peter parker",
+      "target": "a young man",
+      "key": "is"
+    },
+    {
+      "relation": "died",
+      "source": "peter parker",
+      "target": "uncle ben",
+      "key": "died"
+    },
+    {
+      "relation": "is",
+      "source": "peter parker",
+      "target": "a gifted scientist",
+      "key": "is"
+    },
+    {
+      "relation": "deals with",
+      "source": "peter parker",
+      "target": "everyday problems",
+      "key": "deals with"
+    },
+    {
+      "relation": "develops",
+      "source": "peter",
+      "target": "superhuman strength",
+      "key": "develops"
+    },
+    {
+      "relation": "struggles",
+      "source": "peter",
+      "target": "balance",
+      "key": "struggles"
+    },
+    {
+      "relation": "warning",
+      "source": "instinct",
+      "target": "system",
+      "key": "warning"
+    },
+    {
+      "relation": "ignores",
+      "source": "initially",
+      "target": "an opportunity",
+      "key": "ignores"
+    },
+    {
+      "relation": "teaches",
+      "source": "criminal",
+      "target": "peter",
+      "key": "teaches"
+    },
+    {
+      "relation": "enemy",
+      "source": "green goblin",
+      "target": "doctor octopus",
+      "key": "enemy"
+    },
+    {
+      "relation": "presenting",
+      "source": "villains",
+      "target": "unique challenges",
+      "key": "presenting"
+    },
+    {
+      "relation": "designs",
+      "source": "chemistry",
+      "target": "advanced web fluid",
+      "key": "designs"
+    },
+    {
+      "relation": "faces",
+      "source": "his",
+      "target": "financial struggles",
+      "key": "faces"
+    },
+    {
+      "relation": "has worked alongside",
+      "source": "iron man",
+      "target": "heroes",
+      "key": "has worked alongside"
+    },
+    {
+      "relation": "connected",
+      "source": "characters",
+      "target": "through",
+      "key": "connected"
+    },
+    {
+      "relation": "emphasizes",
+      "source": "story",
+      "target": "perseverance",
+      "key": "emphasizes"
+    },
+    {
+      "relation": "about",
+      "source": "document",
+      "target": "it",
+      "key": "about"
+    }
+  ]
+}
