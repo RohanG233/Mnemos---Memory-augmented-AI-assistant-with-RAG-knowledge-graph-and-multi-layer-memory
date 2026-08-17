@@ -116,6 +116,30 @@
     },
     {
       "id": "it"
+    },
+    {
+      "id": "spiderman"
+    },
+    {
+      "id": "secret_wars"
+    },
+    {
+      "id": "your"
+    },
+    {
+      "id": "is"
+    },
+    {
+      "id": "who"
+    },
+    {
+      "id": "i"
+    },
+    {
+      "id": "a"
+    },
+    {
+      "id": "name"
     }
   ],
   "edges": [
@@ -262,6 +286,36 @@
       "source": "document",
       "target": "it",
       "key": "about"
+    },
+    {
+      "relation": "part_of",
+      "source": "spiderman",
+      "target": "secret_wars",
+      "key": "part_of"
+    },
+    {
+      "relation": "name",
+      "source": "your",
+      "target": "is",
+      "key": "name"
+    },
+    {
+      "relation": "is",
+      "source": "who",
+      "target": "spiderman",
+      "key": "is"
+    },
+    {
+      "relation": "am",
+      "source": "i",
+      "target": "a",
+      "key": "am"
+    },
+    {
+      "relation": "your",
+      "source": "name",
+      "target": "name",
+      "key": "your"
     }
   ]
 }
