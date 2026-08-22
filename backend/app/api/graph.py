@@ -1,5 +1,5 @@
-from fastapi import APIRouter
-
+from fastapi import APIRouter, Depends
+from app.auth.dependencies import get_current_user
 from app.main import graph
 
 
@@ -10,7 +10,7 @@ router = APIRouter(
 
 
 @router.get("")
-def get_graph():
+def get_graph(user_id: str = Depends(get_current_user)):
 
     nodes = []
 

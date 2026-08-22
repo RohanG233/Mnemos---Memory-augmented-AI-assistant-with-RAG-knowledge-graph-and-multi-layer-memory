@@ -10,7 +10,11 @@ function Graph() {
     return (
       <main>
         <h1>Knowledge Graph</h1>
-        <p>Loading graph...</p>
+
+        <div className="loading-state">
+          <div className="loading-spinner" />
+          <p>Loading graph...</p>
+        </div>
       </main>
     );
   }

@@ -12,7 +12,10 @@ function Memories() {
     return (
       <main>
         <h1>Memory</h1>
-        <p>Loading memories...</p>
+        <div className="loading-state">
+          <div className="loading-spinner" />
+          <p>Loading memories...</p>
+        </div>
       </main>
     );
   }

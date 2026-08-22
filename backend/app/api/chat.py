@@ -4,7 +4,9 @@ from app.schemas.chat import (
     ChatRequest,
     ChatResponse
 )
+from fastapi import APIRouter, Depends
 
+from app.auth.dependencies import get_current_user
 from app.main import rag_service
 
 
@@ -19,7 +21,8 @@ router = APIRouter(
     response_model=ChatResponse
 )
 def chat(
-    request: ChatRequest
+    request: ChatRequest,
+    user_id: str = Depends(get_current_user),
 ):
 
     result = rag_service.chat(

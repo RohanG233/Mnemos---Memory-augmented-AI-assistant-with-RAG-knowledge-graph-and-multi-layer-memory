@@ -1,26 +1,42 @@
 import type { UploadResponse } from "../types/upload";
 
-const API_URL = "http://127.0.0.1:8000";
+import { apiFetch } from "./api";
+
 
 export async function uploadDocument(
-    file: File
+  file: File,
+  accessToken: string | null
 ): Promise<UploadResponse> {
-    const formData = new FormData();
 
-    formData.append("file", file);
+  const formData = new FormData();
 
-    const response = await fetch(`${API_URL}/documents/upload`, {
-        method: "POST",
-        body: formData,
-    });
+  formData.append(
+    "file",
+    file
+  );
 
-    if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        throw new Error(
-            errorData?.detail ||
-            `Upload failed: ${response.status}`
-        );
-    }
+  const response = await apiFetch(
+    "/documents/upload",
+    {
+      method: "POST",
 
-    return await response.json();
+      body: formData,
+    },
+    accessToken
+  );
+
+  if (!response.ok) {
+
+    const errorData =
+      await response.json().catch(
+        () => null
+      );
+
+    throw new Error(
+      errorData?.detail ||
+      `Upload failed: ${response.status}`
+    );
+  }
+
+  return await response.json();
 }

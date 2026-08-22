@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-
+import { useAuth } from "../context/AuthContext";
 import { sendMessage } from "../services/chatService";
 import {
   getChatRooms,
@@ -11,6 +11,7 @@ import type {
   ChatResponse,
   ChatRoom,
 } from "../types/chat";
+
 
 function createRoom(): ChatRoom {
   const now = Date.now();
@@ -25,6 +26,7 @@ function createRoom(): ChatRoom {
 }
 
 export function useChat() {
+  const { accessToken } = useAuth();
   const [rooms, setRooms] = useState<ChatRoom[]>([]);
 
   const [activeRoomId, setActiveRoomId] =
@@ -185,8 +187,16 @@ export function useChat() {
     setLoading(true);
 
     try {
+      if (!accessToken) {
+        setError("You are not authenticated.");
+        return;
+      }
+
       const response =
-        await sendMessage(message);
+        await sendMessage(
+          message,
+          accessToken
+        );
 
       setLastResponse(response);
 
@@ -203,7 +213,6 @@ export function useChat() {
                   ...room,
                   messages: [
                     ...room.messages,
-                    userMessage,
                     assistantMessage,
                   ],
                   updatedAt: Date.now(),

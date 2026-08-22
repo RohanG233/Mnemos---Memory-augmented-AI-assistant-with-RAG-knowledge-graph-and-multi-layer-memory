@@ -1,11 +1,18 @@
 import chromadb
 
+from pymongo import MongoClient
+
 from sentence_transformers import SentenceTransformer
+
 from chromadb.utils.embedding_functions import (
     SentenceTransformerEmbeddingFunction
 )
 
-from app.core.config import CHROMA_PATH
+from app.core.config import (
+    CHROMA_PATH,
+    MONGODB_URL,
+    MONGODB_DATABASE,
+)
 
 
 # -----------------------------
@@ -36,7 +43,7 @@ model = SentenceTransformer(
 
 
 # -----------------------------
-# Collections
+# Chroma Collections
 # -----------------------------
 
 document_collection = chroma_client.get_or_create_collection(
@@ -60,4 +67,31 @@ episode_collection = chroma_client.get_or_create_collection(
 procedure_collection = chroma_client.get_or_create_collection(
     name="procedures",
     embedding_function=embedding_function
+)
+
+
+# -----------------------------
+# MongoDB
+# -----------------------------
+
+mongo_client = MongoClient(
+    MONGODB_URL
+)
+
+mongo_database = mongo_client[
+    MONGODB_DATABASE
+]
+
+users_collection = mongo_database[
+    "users"
+]
+
+
+# -----------------------------
+# User Index
+# -----------------------------
+
+users_collection.create_index(
+    "google_id",
+    unique=True
 )

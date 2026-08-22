@@ -1,8 +1,15 @@
 import { useState } from "react";
+
+import { useAuth } from "../context/AuthContext";
+
 import { uploadDocument } from "../services/uploadService";
+
 import type { UploadedDocument } from "../types/upload";
 
+
 export function useUpload() {
+    const { accessToken } = useAuth();
+
     const [documents, setDocuments] = useState<
         UploadedDocument[]
     >([]);
@@ -17,13 +24,22 @@ export function useUpload() {
         null
     );
 
+
     async function upload(file: File) {
+        if (!accessToken) {
+            setError("You are not authenticated.");
+            return;
+        }
+
         setError(null);
         setSuccess(null);
         setLoading(true);
 
         try {
-            const response = await uploadDocument(file);
+            const response = await uploadDocument(
+                file,
+                accessToken
+            );
 
             const document: UploadedDocument = {
                 filename: response.filename,
@@ -47,6 +63,7 @@ export function useUpload() {
             setLoading(false);
         }
     }
+
 
     return {
         documents,

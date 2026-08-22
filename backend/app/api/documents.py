@@ -2,7 +2,8 @@ from fastapi import (
     APIRouter,
     UploadFile,
     File,
-    HTTPException
+    HTTPException,
+    Depends
 )
 
 import os
@@ -12,6 +13,7 @@ from app.main import (
     document_service
 )
 
+from app.auth.dependencies import get_current_user
 
 router = APIRouter(
     prefix="/documents",
@@ -21,7 +23,8 @@ router = APIRouter(
 
 @router.post("/upload")
 async def upload_document(
-    file: UploadFile = File(...)
+    file: UploadFile = File(...),
+    user_id: str = Depends(get_current_user),
 ):
 
     if not file.filename:

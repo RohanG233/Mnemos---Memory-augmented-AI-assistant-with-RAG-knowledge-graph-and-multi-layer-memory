@@ -50,9 +50,7 @@ app.add_middleware(
     ],
 
     allow_credentials=True,
-
     allow_methods=["*"],
-
     allow_headers=["*"]
 )
 
@@ -102,7 +100,12 @@ from app.api.chat import router as chat_router
 from app.api.documents import router as document_router
 from app.api.memories import router as memory_router
 from app.api.graph import router as graph_router
+from app.api.auth import router as auth_router
 
+
+app.include_router(
+    auth_router
+)
 
 app.include_router(
     chat_router

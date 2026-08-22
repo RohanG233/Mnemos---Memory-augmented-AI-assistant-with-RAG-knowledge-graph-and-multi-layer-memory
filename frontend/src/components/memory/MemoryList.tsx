@@ -7,7 +7,12 @@ interface MemoryListProps {
 
 function MemoryList({ memories }: MemoryListProps) {
   if (memories.length === 0) {
-    return <p>No memories stored yet.</p>;
+    return (
+      <div className="empty-state">
+        <h3>No memories yet</h3>
+        <p>Your stored memories will appear here.</p>
+      </div>
+    );
   }
 
   return (

@@ -1,4 +1,5 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from app.auth.dependencies import get_current_user
 
 from app.core.database import (
     memory_collection,
@@ -14,7 +15,7 @@ router = APIRouter(
 
 
 @router.get("")
-def get_memories():
+def get_memories(user_id: str = Depends(get_current_user)):
 
     results = memory_collection.get(
         include=[
@@ -45,7 +46,7 @@ def get_memories():
 
 
 @router.get("/episodes")
-def get_episodes():
+def get_episodes(user_id: str = Depends(get_current_user)):
 
     results = episode_collection.get(
         include=[
@@ -76,7 +77,7 @@ def get_episodes():
 
 
 @router.get("/procedures")
-def get_procedures():
+def get_procedures(user_id: str = Depends(get_current_user)):
 
     results = procedure_collection.get(
         include=[

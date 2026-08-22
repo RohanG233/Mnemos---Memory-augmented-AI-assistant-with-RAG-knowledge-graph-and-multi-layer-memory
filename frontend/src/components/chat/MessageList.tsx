@@ -1,7 +1,9 @@
+import { useEffect, useRef } from "react";
+
 import type { ChatMessage } from "../../types/chat";
+
 import MessageBubble from "./MessageBubble";
 import LoadingMessage from "./LoadingMessage";
-import { useEffect, useRef } from "react";
 
 interface MessageListProps {
   messages: ChatMessage[];
@@ -10,12 +12,31 @@ interface MessageListProps {
 
 function MessageList({ messages, loading }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  const previousCountRef = useRef(messages.length);
+  const isFirstRenderRef = useRef(true);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({
-      behavior: "smooth",
-    });
-  }, [messages, loading]);
+    /*
+     * Do nothing when the component initially receives
+     * an existing conversation.
+     */
+    if (isFirstRenderRef.current) {
+      isFirstRenderRef.current = false;
+      previousCountRef.current = messages.length;
+      return;
+    }
+
+    /*
+     * Only scroll when messages have actually been added.
+     */
+    if (messages.length > previousCountRef.current) {
+      bottomRef.current?.scrollIntoView({
+        behavior: "smooth",
+      });
+    }
+
+    previousCountRef.current = messages.length;
+  }, [messages.length]);
 
   if (messages.length === 0 && !loading) {
     return (
@@ -29,7 +50,7 @@ function MessageList({ messages, loading }: MessageListProps) {
   return (
     <div className="message-list">
       {messages.map((message, index) => (
-        <MessageBubble key={index} message={message} />
+        <MessageBubble key={`${message.role}-${index}`} message={message} />
       ))}
 
       {loading && <LoadingMessage />}
