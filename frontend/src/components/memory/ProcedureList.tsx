@@ -1,4 +1,5 @@
 import type { Procedure } from "../../types/memory";
+import MemoryItem from "./MemoryItem";
 
 interface ProcedureListProps {
   procedures: Procedure[];
@@ -6,19 +7,23 @@ interface ProcedureListProps {
 
 function ProcedureList({ procedures }: ProcedureListProps) {
   if (procedures.length === 0) {
-    return <p>No procedures stored yet.</p>;
+    return (
+      <div className="empty-state">
+        <h3>No procedures yet</h3>
+        <p>Tell the AI how it should behave and those instructions will be stored here.</p>
+      </div>
+    );
   }
 
   return (
     <div className="memory-list">
-      {procedures.map((procedure) => (
-        <div className="memory-item" key={procedure.id}>
-          <p>{procedure.content}</p>
-
-          {procedure.metadata && (
-            <small>{JSON.stringify(procedure.metadata)}</small>
-          )}
-        </div>
+      {procedures.map((p) => (
+        <MemoryItem
+          key={p.id}
+          memory={p}
+          badge="Procedure"
+          badgeClass="memory-badge-procedure"
+        />
       ))}
     </div>
   );

@@ -1,5 +1,4 @@
 import { useState } from "react";
-
 import type { ChatRoom } from "../../types/chat";
 
 interface ChatSidebarProps {
@@ -31,26 +30,13 @@ function ChatSidebar({
   }
 
   function confirmRename() {
-    if (!roomToRename) {
-      return;
-    }
-
-    const title = renameValue.trim();
-
-    if (!title) {
-      return;
-    }
-
-    onRenameRoom(roomToRename.id, title);
-
+    if (!roomToRename || !renameValue.trim()) return;
+    onRenameRoom(roomToRename.id, renameValue.trim());
     setRoomToRename(null);
     setRenameValue("");
   }
 
-  function cancelRename() {
-    setRoomToRename(null);
-    setRenameValue("");
-  }
+  function cancelRename() { setRoomToRename(null); setRenameValue(""); }
 
   function handleDeleteClick(room: ChatRoom) {
     setOpenMenuId(null);
@@ -58,39 +44,37 @@ function ChatSidebar({
   }
 
   function confirmDelete() {
-    if (!roomToDelete) {
-      return;
-    }
-
+    if (!roomToDelete) return;
     onDeleteRoom(roomToDelete.id);
     setRoomToDelete(null);
   }
 
-  function cancelDelete() {
-    setRoomToDelete(null);
-  }
+  function cancelDelete() { setRoomToDelete(null); }
 
   return (
     <>
       <aside className="chat-sidebar">
+        {/* New chat */}
         <button type="button" className="new-chat-button" onClick={onNewChat}>
-          + New Chat
+          ＋ New Chat
         </button>
 
+        {rooms.length > 0 && (
+          <span className="chat-sidebar-label">Recent</span>
+        )}
+
+        {/* Room list */}
         <div className="chat-room-list">
           {rooms.map((room) => (
             <div
               key={room.id}
-              className={
-                room.id === activeRoomId
-                  ? "chat-room-wrapper active"
-                  : "chat-room-wrapper"
-              }
+              className={`chat-room-wrapper${room.id === activeRoomId ? " active" : ""}`}
             >
               <button
                 type="button"
                 className="chat-room"
                 onClick={() => onSelectRoom(room.id)}
+                title={room.title}
               >
                 {room.title}
               </button>
@@ -99,9 +83,9 @@ function ChatSidebar({
                 <button
                   type="button"
                   className="chat-room-menu-button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-
+                  aria-label="Room options"
+                  onClick={(e) => {
+                    e.stopPropagation();
                     setOpenMenuId(openMenuId === room.id ? null : room.id);
                   }}
                 >
@@ -109,19 +93,16 @@ function ChatSidebar({
                 </button>
 
                 {openMenuId === room.id && (
-                  <div className="chat-room-menu">
-                    <button
-                      type="button"
-                      onClick={() => handleRenameClick(room)}
-                    >
-                      Rename
+                  <div className="chat-room-menu" role="menu">
+                    <button type="button" onClick={() => handleRenameClick(room)}>
+                      ✏️ Rename
                     </button>
-
                     <button
                       type="button"
+                      className="danger"
                       onClick={() => handleDeleteClick(room)}
                     >
-                      Delete
+                      🗑 Delete
                     </button>
                   </div>
                 )}
@@ -131,33 +112,20 @@ function ChatSidebar({
         </div>
       </aside>
 
+      {/* Delete modal */}
       {roomToDelete && (
         <div className="delete-modal-overlay" onClick={cancelDelete}>
-          <div
-            className="delete-modal"
-            onClick={(event) => event.stopPropagation()}
-          >
+          <div className="delete-modal" onClick={(e) => e.stopPropagation()}>
             <h2>Delete chat?</h2>
-
             <p>
-              Are you sure you want to delete{" "}
-              <strong>"{roomToDelete.title}"</strong>?
+              This will permanently delete{" "}
+              <strong>"{roomToDelete.title}"</strong> and all its messages.
             </p>
-
             <div className="delete-modal-actions">
-              <button
-                type="button"
-                className="cancel-delete-button"
-                onClick={cancelDelete}
-              >
+              <button type="button" className="cancel-delete-button" onClick={cancelDelete}>
                 Cancel
               </button>
-
-              <button
-                type="button"
-                className="confirm-delete-button"
-                onClick={confirmDelete}
-              >
+              <button type="button" className="confirm-delete-button" onClick={confirmDelete}>
                 Delete
               </button>
             </div>
@@ -165,39 +133,25 @@ function ChatSidebar({
         </div>
       )}
 
+      {/* Rename modal */}
       {roomToRename && (
         <div className="rename-modal-overlay" onClick={cancelRename}>
-          <div
-            className="rename-modal"
-            onClick={(event) => event.stopPropagation()}
-          >
+          <div className="rename-modal" onClick={(e) => e.stopPropagation()}>
             <h2>Rename chat</h2>
-
             <input
               type="text"
               value={renameValue}
-              onChange={(event) => setRenameValue(event.target.value)}
               autoFocus
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  confirmRename();
-                }
-
-                if (event.key === "Escape") {
-                  cancelRename();
-                }
+              onChange={(e) => setRenameValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") confirmRename();
+                if (e.key === "Escape") cancelRename();
               }}
             />
-
             <div className="rename-modal-actions">
-              <button
-                type="button"
-                className="cancel-rename-button"
-                onClick={cancelRename}
-              >
+              <button type="button" className="cancel-rename-button" onClick={cancelRename}>
                 Cancel
               </button>
-
               <button
                 type="button"
                 className="confirm-rename-button"

@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone, timedelta
 
 from requests_oauthlib import OAuth2Session
@@ -20,6 +21,8 @@ from app.core.config import (
 
 from app.core.database import users_collection
 
+logger = logging.getLogger(__name__)
+
 
 class AuthService:
 
@@ -35,51 +38,13 @@ class AuthService:
             scope=GOOGLE_SCOPES,
         )
 
-        authorization_url, state = (
-            google.authorization_url(
-                GOOGLE_AUTHORIZATION_URL
-            )
+        authorization_url, state = google.authorization_url(
+            GOOGLE_AUTHORIZATION_URL,
+            access_type="offline",
+            prompt="select_account",
         )
 
         return authorization_url, state
-
-
-        # -----------------------------
-    # Get User By Refresh Token
-    # -----------------------------
-
-    def get_user_by_refresh_token(
-        self,
-        refresh_token: str,
-    ):
-
-        return users_collection.find_one(
-            {
-                "refresh_token": refresh_token
-            }
-        )
-
-
-    # -----------------------------
-    # Remove Refresh Token
-    # -----------------------------
-
-    def remove_refresh_token(
-        self,
-        user_id,
-    ):
-
-        users_collection.update_one(
-            {
-                "_id": user_id
-            },
-            {
-                "$unset": {
-                    "refresh_token": "",
-                    "refresh_token_expires_at": "",
-                }
-            }
-        )
 
 
     # -----------------------------
@@ -99,121 +64,59 @@ class AuthService:
             scope=GOOGLE_SCOPES,
         )
 
-        # -----------------------------
-        # Exchange authorization code
-        # -----------------------------
-
+        # Exchange authorization code for tokens
         google.fetch_token(
             GOOGLE_TOKEN_URL,
             code=code,
             client_secret=GOOGLE_CLIENT_SECRET,
         )
 
-        # -----------------------------
-        # Get Google User Information
-        # -----------------------------
-
-        response = google.get(
-            GOOGLE_USER_INFO_URL
-        )
-
+        # Get Google user info
+        response = google.get(GOOGLE_USER_INFO_URL)
         response.raise_for_status()
 
         user_info = response.json()
-
         google_id = user_info["id"]
 
-        # -----------------------------
-        # Find Existing User
-        # -----------------------------
+        logger.info("Google OAuth callback for google_id=%s", google_id)
 
-        user = users_collection.find_one(
-            {
-                "google_id": google_id
-            }
-        )
-
-        # -----------------------------
-        # Create User
-        # -----------------------------
+        # Find or create user
+        user = users_collection.find_one({"google_id": google_id})
 
         if not user:
-
             new_user = {
                 "google_id": google_id,
                 "email": user_info["email"],
                 "name": user_info["name"],
                 "picture": user_info.get("picture"),
-                "created_at": datetime.now(
-                    timezone.utc
-                ),
+                "created_at": datetime.now(timezone.utc),
             }
+            result = users_collection.insert_one(new_user)
+            user = users_collection.find_one({"_id": result.inserted_id})
+            logger.info("Created new user id=%s", result.inserted_id)
 
-            result = users_collection.insert_one(
-                new_user
-            )
+        user_id = str(user["_id"])
 
-            user = users_collection.find_one(
-                {
-                    "_id": result.inserted_id
-                }
-            )
-
-        # -----------------------------
-        # User ID
-        # -----------------------------
-
-        user_id = str(
-            user["_id"]
-        )
-
-        # -----------------------------
-        # Create Access Token
-        # -----------------------------
-
-        access_token = create_access_token(
-            user_id
-        )
-
-        # -----------------------------
-        # Create Refresh Token
-        # -----------------------------
-
+        # Issue tokens
+        access_token = create_access_token(user_id)
         refresh_token = create_refresh_token()
-
-        refresh_token_expires_at = (
-            datetime.now(timezone.utc)
-            + timedelta(
-                days=REFRESH_TOKEN_EXPIRE_DAYS
-            )
+        refresh_token_expires_at = datetime.now(timezone.utc) + timedelta(
+            days=REFRESH_TOKEN_EXPIRE_DAYS
         )
-
-        # -----------------------------
-        # Store Refresh Token
-        # -----------------------------
 
         users_collection.update_one(
-            {
-                "_id": user["_id"]
-            },
+            {"_id": user["_id"]},
             {
                 "$set": {
                     "refresh_token": refresh_token,
-                    "refresh_token_expires_at":
-                        refresh_token_expires_at,
+                    "refresh_token_expires_at": refresh_token_expires_at,
                 }
-            }
+            },
         )
-
-        # -----------------------------
-        # Return Authentication Result
-        # -----------------------------
 
         return {
             "access_token": access_token,
-
             "refresh_token": refresh_token,
-
             "user": {
                 "id": user_id,
                 "google_id": user["google_id"],
@@ -224,72 +127,48 @@ class AuthService:
         }
 
 
-    def get_user_by_refresh_token(
-        self,
-        refresh_token: str,
-    ):
+    # -----------------------------
+    # Get User By Refresh Token
+    # -----------------------------
 
-        return users_collection.find_one(
-            {
-                "refresh_token": refresh_token
-            }
-        )
+    def get_user_by_refresh_token(self, refresh_token: str):
+        return users_collection.find_one({"refresh_token": refresh_token})
 
 
     # -----------------------------
     # Remove Refresh Token
     # -----------------------------
 
-    def remove_refresh_token(
-        self,
-        user_id,
-    ):
-
+    def remove_refresh_token(self, user_id):
         users_collection.update_one(
-            {
-                "_id": user_id
-            },
+            {"_id": user_id},
             {
                 "$unset": {
                     "refresh_token": "",
                     "refresh_token_expires_at": "",
                 }
-            }
+            },
         )
 
 
-        # -----------------------------
+    # -----------------------------
     # Rotate Refresh Token
     # -----------------------------
 
-    def rotate_refresh_token(
-        self,
-        user,
-    ):
-
+    def rotate_refresh_token(self, user):
         new_refresh_token = create_refresh_token()
-
-        new_expires_at = (
-            datetime.now(timezone.utc)
-            + timedelta(
-                days=REFRESH_TOKEN_EXPIRE_DAYS
-            )
+        new_expires_at = datetime.now(timezone.utc) + timedelta(
+            days=REFRESH_TOKEN_EXPIRE_DAYS
         )
 
         users_collection.update_one(
-            {
-                "_id": user["_id"]
-            },
+            {"_id": user["_id"]},
             {
                 "$set": {
                     "refresh_token": new_refresh_token,
-                    "refresh_token_expires_at":
-                        new_expires_at,
+                    "refresh_token_expires_at": new_expires_at,
                 }
-            }
+            },
         )
 
-        return (
-            new_refresh_token,
-            new_expires_at,
-        )
+        return new_refresh_token, new_expires_at

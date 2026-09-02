@@ -1,11 +1,9 @@
-import { refreshAccessToken } from "./authService";
+// API base URL — set VITE_API_URL in .env (dev) or .env.production (prod)
+const API_URL: string =
+  import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 
-const API_URL = "http://localhost:8000";
 
-
-let refreshHandler:
-  | (() => Promise<string | null>)
-  | null = null;
+let refreshHandler: (() => Promise<string | null>) | null = null;
 
 
 // -----------------------------
@@ -29,70 +27,51 @@ export async function apiFetch(
   accessToken: string | null
 ): Promise<Response> {
 
-  // -----------------------------
-  // Send Original Request
-  // -----------------------------
+  const headers: Record<string, string> = {
+    ...(options.headers as Record<string, string>),
+  };
 
-  const response = await fetch(
-    `${API_URL}${endpoint}`,
-    {
-      ...options,
+  if (accessToken) {
+    headers["Authorization"] = `Bearer ${accessToken}`;
+  }
 
-      headers: {
-        ...options.headers,
+  // Always send cookies so the refresh-token cookie is
+  // included when the browser calls /auth/refresh.
+  const requestInit: RequestInit = {
+    ...options,
+    headers,
+    credentials: "include",
+  };
 
-        ...(accessToken
-          ? {
-              Authorization:
-                `Bearer ${accessToken}`,
-            }
-          : {}),
-      },
-    }
-  );
+  const response = await fetch(`${API_URL}${endpoint}`, requestInit);
 
-  // -----------------------------
-  // Request Successful
-  // -----------------------------
-
+  // Not a 401 — return as-is
   if (response.status !== 401) {
     return response;
   }
 
-  // -----------------------------
-  // No Refresh Handler
-  // -----------------------------
-
+  // No refresh handler registered
   if (!refreshHandler) {
     return response;
   }
 
-  // -----------------------------
-  // Refresh Access Token
-  // -----------------------------
-
-  const newAccessToken =
-    await refreshHandler();
+  // Attempt token refresh
+  const newAccessToken = await refreshHandler();
 
   if (!newAccessToken) {
     return response;
   }
 
-  // -----------------------------
-  // Retry Original Request
-  // -----------------------------
-
-  return fetch(
-    `${API_URL}${endpoint}`,
-    {
-      ...options,
-
-      headers: {
-        ...options.headers,
-
-        Authorization:
-          `Bearer ${newAccessToken}`,
-      },
-    }
-  );
+  // Retry with new token
+  return fetch(`${API_URL}${endpoint}`, {
+    ...requestInit,
+    headers: {
+      ...headers,
+      Authorization: `Bearer ${newAccessToken}`,
+    },
+  });
 }
+
+
+// Export base URL so other services can construct URLs if needed
+export { API_URL };

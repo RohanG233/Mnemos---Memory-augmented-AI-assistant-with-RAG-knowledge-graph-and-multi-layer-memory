@@ -1,246 +1,292 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+
 import { useAuth } from "../context/AuthContext";
-import { sendMessage } from "../services/chatService";
+
+import {
+  sendMessage,
+  createConversation,
+  renameConversation,
+  deleteConversation,
+} from "../services/chatService";
+
 import {
   getChatRooms,
   saveChatRooms,
 } from "../services/chatStorage";
 
-import type {
-  ChatMessage,
-  ChatResponse,
-  ChatRoom,
-} from "../types/chat";
+import type { ChatMessage, ChatRoom } from "../types/chat";
 
-
-function createRoom(): ChatRoom {
-  const now = Date.now();
-
-  return {
-    id: crypto.randomUUID(),
-    title: "New Chat",
-    messages: [],
-    createdAt: now,
-    updatedAt: now,
-  };
-}
 
 export function useChat() {
+
   const { accessToken } = useAuth();
+
   const [rooms, setRooms] = useState<ChatRoom[]>([]);
+  const [activeRoomId, setActiveRoomId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const [activeRoomId, setActiveRoomId] =
-    useState<string | null>(null);
+  // True once the initial localStorage load has completed.
+  // The auto-create effect must not fire before this is true.
+  const [loadComplete, setLoadComplete] = useState(false);
 
-  const [lastResponse, setLastResponse] =
-    useState<ChatResponse | null>(null);
+  // Prevent double-init in React StrictMode
+  const initialised = useRef(false);
 
-  const [loading, setLoading] =
-    useState(false);
 
-  const [error, setError] =
-    useState<string | null>(null);
+  // --------------------------------
+  // Load rooms from localStorage once
+  // --------------------------------
 
   useEffect(() => {
-    const savedRooms = getChatRooms();
+    if (initialised.current) return;
+    initialised.current = true;
 
-    if (savedRooms.length > 0) {
-      setRooms(savedRooms);
-      setActiveRoomId(savedRooms[0].id);
-    } else {
-      const room = createRoom();
+    const saved = getChatRooms();
 
-      setRooms([room]);
-      setActiveRoomId(room.id);
-
-      saveChatRooms([room]);
+    if (saved.length > 0) {
+      setRooms(saved);
+      setActiveRoomId(saved[0].id);
     }
+
+    // Signal that the load phase is done regardless of whether
+    // rooms were found — the auto-create effect waits for this.
+    setLoadComplete(true);
   }, []);
 
-  const activeRoom =
-    rooms.find(
-      (room) => room.id === activeRoomId
-    ) ?? null;
 
-  const messages =
-    activeRoom?.messages ?? [];
+  // --------------------------------
+  // Helpers
+  // --------------------------------
 
-  function updateRooms(
-    updatedRooms: ChatRoom[]
-  ) {
-    setRooms(updatedRooms);
-    saveChatRooms(updatedRooms);
+  const activeRoom = rooms.find((r) => r.id === activeRoomId) ?? null;
+  const messages = activeRoom?.messages ?? [];
+
+  function updateRooms(updated: ChatRoom[]) {
+    setRooms(updated);
+    saveChatRooms(updated);
   }
 
-  function createNewRoom() {
-    const activeRoom =
-        rooms.find(
-        (room) => room.id === activeRoomId
-        );
 
-    if (
-        activeRoom &&
-        activeRoom.messages.length === 0
-    ) {
-        return;
+  // --------------------------------
+  // Create a new room
+  // --------------------------------
+
+  async function createNewRoom() {
+    // Don't create another empty room if the active one is already empty
+    if (activeRoom && activeRoom.messages.length === 0) {
+      return;
     }
 
-    const room = createRoom();
-
-    const updatedRooms = [
-        room,
-        ...rooms,
-    ];
-
-    updateRooms(updatedRooms);
-
-    setActiveRoomId(room.id);
-    setLastResponse(null);
-    setError(null);
+    if (!accessToken) {
+      setError("You are not authenticated.");
+      return;
     }
+
+    try {
+      const created = await createConversation(accessToken);
+
+      const now = Date.now();
+
+      const room: ChatRoom = {
+        id: crypto.randomUUID(),
+        conversationId: created.conversation_id,
+        title: "New Chat",
+        messages: [],
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      // Read current rooms from the setter callback to avoid
+      // capturing a stale closure value.
+      setRooms((current) => {
+        const updated = [room, ...current];
+        saveChatRooms(updated);
+        return updated;
+      });
+
+      setActiveRoomId(room.id);
+      setError(null);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to create new chat."
+      );
+    }
+  }
+
+
+  // --------------------------------
+  // Auto-create the first room only
+  // after localStorage load is done
+  // AND only if no rooms were found
+  // --------------------------------
+
+  useEffect(() => {
+    // Wait until both conditions are true before deciding to create:
+    //   1. The localStorage read has completed (loadComplete)
+    //   2. We have an access token to call the backend
+    if (!loadComplete || !accessToken) return;
+
+    if (rooms.length === 0) {
+      createNewRoom();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadComplete, accessToken]);
+
+
+  // --------------------------------
+  // Select room
+  // --------------------------------
 
   function selectRoom(roomId: string) {
     setActiveRoomId(roomId);
-    setLastResponse(null);
     setError(null);
   }
 
-  function renameRoom(
-    roomId: string,
-    newTitle: string
-    ) {
+
+  // --------------------------------
+  // Rename room
+  // --------------------------------
+
+  async function renameRoom(roomId: string, newTitle: string) {
     const title = newTitle.trim();
+    if (!title) return;
 
-    if (!title) {
-        return;
-    }
+    const room = rooms.find((r) => r.id === roomId);
 
-    const updatedRooms = rooms.map((room) =>
-        room.id === roomId
-        ? {
-            ...room,
-            title,
-            updatedAt: Date.now(),
-            }
-        : room
+    const updated = rooms.map((r) =>
+      r.id === roomId ? { ...r, title, updatedAt: Date.now() } : r
     );
+    updateRooms(updated);
 
-    updateRooms(updatedRooms);
+    if (room?.conversationId && accessToken) {
+      try {
+        await renameConversation(room.conversationId, title, accessToken);
+      } catch (err) {
+        console.warn("Failed to sync rename to backend:", err);
+      }
     }
+  }
 
-    function deleteRoom(roomId: string) {
-    const updatedRooms = rooms.filter(
-        (room) => room.id !== roomId
-    );
 
-    if (updatedRooms.length === 0) {
-        const room = createRoom();
+  // --------------------------------
+  // Delete room
+  // --------------------------------
 
-        updateRooms([room]);
-        setActiveRoomId(room.id);
+  async function deleteRoom(roomId: string) {
+    const room = rooms.find((r) => r.id === roomId);
+
+    const updated = rooms.filter((r) => r.id !== roomId);
+
+    if (updated.length === 0) {
+      updateRooms([]);
+      setActiveRoomId(null);
+      setError(null);
+      if (accessToken) {
+        createNewRoom();
+      }
     } else {
-        updateRooms(updatedRooms);
-
-        if (roomId === activeRoomId) {
-        setActiveRoomId(updatedRooms[0].id);
-        }
+      updateRooms(updated);
+      if (roomId === activeRoomId) {
+        setActiveRoomId(updated[0].id);
+      }
     }
 
-    setLastResponse(null);
     setError(null);
+
+    if (room?.conversationId && accessToken) {
+      try {
+        await deleteConversation(room.conversationId, accessToken);
+      } catch (err) {
+        console.warn("Failed to sync delete to backend:", err);
+      }
     }
+  }
+
+
+  // --------------------------------
+  // Send message
+  // --------------------------------
 
   async function send(message: string) {
-    if (!message.trim() || loading || !activeRoom) {
+    if (!message.trim() || loading) return;
+
+    if (!activeRoom) {
+      setError("No active chat selected.");
+      return;
+    }
+
+    if (!activeRoom.conversationId) {
+      setError(
+        "This chat has no server conversation ID. Please create a new chat."
+      );
+      return;
+    }
+
+    if (!accessToken) {
+      setError("You are not authenticated.");
       return;
     }
 
     setError(null);
 
-    const userMessage: ChatMessage = {
-      role: "user",
-      content: message,
-    };
+    const userMessage: ChatMessage = { role: "user", content: message };
 
-    const updatedAfterUserMessage =
-      rooms.map((room) =>
-        room.id === activeRoom.id
-          ? {
-              ...room,
-              messages: [
-                ...room.messages,
-                userMessage,
-              ],
-              title:
-                room.messages.length === 0
-                  ? message.slice(0, 40)
-                  : room.title,
-              updatedAt: Date.now(),
-            }
-          : room
-      );
-
-    updateRooms(
-      updatedAfterUserMessage
+    const afterUser = rooms.map((r) =>
+      r.id === activeRoom.id
+        ? {
+            ...r,
+            messages: [...r.messages, userMessage],
+            title:
+              r.messages.length === 0
+                ? message.slice(0, 40)
+                : r.title,
+            updatedAt: Date.now(),
+          }
+        : r
     );
 
+    updateRooms(afterUser);
     setLoading(true);
 
     try {
-      if (!accessToken) {
-        setError("You are not authenticated.");
-        return;
-      }
-
-      const response =
-        await sendMessage(
-          message,
-          accessToken
-        );
-
-      setLastResponse(response);
+      const response = await sendMessage(
+        message,
+        activeRoom.conversationId,
+        accessToken
+      );
 
       const assistantMessage: ChatMessage = {
         role: "assistant",
         content: response.answer,
       };
 
-      const updatedAfterResponse =
-        updatedAfterUserMessage.map(
-          (room) =>
-            room.id === activeRoom.id
-              ? {
-                  ...room,
-                  messages: [
-                    ...room.messages,
-                    assistantMessage,
-                  ],
-                  updatedAt: Date.now(),
-                }
-              : room
-        );
-
-      updateRooms(
-        updatedAfterResponse
+      const afterAssistant = afterUser.map((r) =>
+        r.id === activeRoom.id
+          ? {
+              ...r,
+              messages: [...r.messages, assistantMessage],
+              updatedAt: Date.now(),
+            }
+          : r
       );
+
+      updateRooms(afterAssistant);
 
     } catch (err) {
       setError(
-        err instanceof Error
-          ? err.message
-          : "Something went wrong."
+        err instanceof Error ? err.message : "Something went wrong."
       );
-
     } finally {
       setLoading(false);
     }
   }
 
+
   return {
     rooms,
     activeRoomId,
     messages,
-    lastResponse,
     loading,
     error,
     send,

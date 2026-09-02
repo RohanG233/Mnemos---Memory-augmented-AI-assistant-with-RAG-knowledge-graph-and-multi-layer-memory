@@ -10,15 +10,18 @@ export function getChatRooms(): ChatRoom[] {
   }
 
   try {
-    return JSON.parse(stored) as ChatRoom[];
+    const rooms = JSON.parse(stored) as ChatRoom[];
+
+    // Filter out legacy rooms that have no conversationId —
+    // they cannot be used for new messages and would confuse the UI.
+    // The hook will create a fresh room with a proper conversationId.
+    return rooms.filter((r) => r.conversationId);
+
   } catch {
     return [];
   }
 }
 
 export function saveChatRooms(rooms: ChatRoom[]): void {
-  localStorage.setItem(
-    STORAGE_KEY,
-    JSON.stringify(rooms)
-  );
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(rooms));
 }

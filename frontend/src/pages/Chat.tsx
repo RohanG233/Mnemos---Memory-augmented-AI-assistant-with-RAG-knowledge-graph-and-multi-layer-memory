@@ -1,5 +1,4 @@
 import { useChat } from "../hooks/useChat";
-
 import ChatSidebar from "../components/chat/ChatSidebar";
 import ChatWindow from "../components/chat/ChatWindow";
 
@@ -19,8 +18,6 @@ function Chat() {
 
   return (
     <main className="chat-page">
-      <h1>ACAI</h1>
-
       <div className="chat-container">
         <ChatSidebar
           rooms={rooms}
@@ -34,12 +31,14 @@ function Chat() {
         <div className="chat-content">
           <ChatWindow
             messages={messages}
-            response={null}
             loading={loading}
             onSend={send}
           />
-
-          {error && <p>{error}</p>}
+          {error && (
+            <div className="chat-error" role="alert">
+              ⚠ {error}
+            </div>
+          )}
         </div>
       </div>
     </main>

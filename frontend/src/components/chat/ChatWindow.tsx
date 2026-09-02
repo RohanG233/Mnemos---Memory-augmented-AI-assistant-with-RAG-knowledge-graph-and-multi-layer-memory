@@ -1,26 +1,43 @@
-import type { ChatMessage, ChatResponse } from "../../types/chat";
-
+import { useState } from "react";
+import type { ChatMessage } from "../../types/chat";
 import MessageList from "./MessageList";
 import ChatInput from "./ChatInput";
-import ChatDetails from "./ChatDetails";
 
 interface ChatWindowProps {
   messages: ChatMessage[];
-  response: ChatResponse | null;
   loading: boolean;
   onSend: (message: string) => void;
 }
 
-function ChatWindow({ messages, response, loading, onSend }: ChatWindowProps) {
+function ChatWindow({ messages, loading, onSend }: ChatWindowProps) {
+  // Hint chips pre-fill the input — we lift a "pending hint" state
+  // and clear it once the user edits or submits
+  const [pendingHint, setPendingHint] = useState<string | null>(null);
+
+  function handleHintClick(hint: string) {
+    setPendingHint(hint);
+  }
+
+  function handleSend(message: string) {
+    setPendingHint(null);
+    onSend(message);
+  }
+
   return (
     <div className="chat-window">
       <div className="chat-main">
-        <MessageList messages={messages} loading={loading} />
-
-        <ChatInput onSend={onSend} loading={loading} />
+        <MessageList
+          messages={messages}
+          loading={loading}
+          onHintClick={handleHintClick}
+        />
+        <ChatInput
+          onSend={handleSend}
+          loading={loading}
+          initialValue={pendingHint ?? undefined}
+          onInitialValueConsumed={() => setPendingHint(null)}
+        />
       </div>
-
-      <ChatDetails response={response} />
     </div>
   );
 }

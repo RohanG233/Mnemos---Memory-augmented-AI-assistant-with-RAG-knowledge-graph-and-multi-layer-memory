@@ -91,7 +91,8 @@ class EpisodicMemoryService:
     def process(
         self,
         user_input,
-        assistant_reply
+        assistant_reply,
+        user_id: str,
     ):
 
         check_prompt = (
@@ -143,6 +144,7 @@ class EpisodicMemoryService:
                 self.collection,
                 self.embedding_model,
                 episode_summary,
+                user_id=user_id,
                 threshold=(
                     MEMORY_SIMILARITY_THRESHOLD
                 )
@@ -174,23 +176,25 @@ class EpisodicMemoryService:
             ],
 
             metadatas=[
-                {
-                    "source":
-                        "conversation",
+            {
+                "user_id": user_id,
 
-                    "created_at":
-                        now,
+                "source":
+                    "conversation",
 
-                    "last_accessed":
-                        now,
+                "created_at":
+                    now,
 
-                    "access_count":
-                        0,
+                "last_accessed":
+                    now,
 
-                    "importance":
-                        0.7
-                }
-            ]
+                "access_count":
+                    0,
+
+                "importance":
+                    0.7
+            }
+        ]
         )
 
         return {

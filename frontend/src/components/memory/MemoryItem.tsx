@@ -2,42 +2,44 @@ import type { Memory } from "../../types/memory";
 
 interface MemoryItemProps {
   memory: Memory;
+  badge?: string;
+  badgeClass?: string;
 }
 
-function MemoryItem({ memory }: MemoryItemProps) {
-  const metadata = memory.metadata;
-
-  const source = typeof metadata?.source === "string" ? metadata.source : null;
-
-  const importance =
-    typeof metadata?.importance === "number" ? metadata.importance : null;
-
-  const accessCount =
-    typeof metadata?.access_count === "number" ? metadata.access_count : null;
+function MemoryItem({ memory, badge, badgeClass }: MemoryItemProps) {
+  const meta = memory.metadata;
+  const source = typeof meta?.source === "string" ? meta.source : null;
+  const importance = typeof meta?.importance === "number" ? meta.importance : null;
+  const accessCount = typeof meta?.access_count === "number" ? meta.access_count : null;
 
   return (
     <div className="memory-item">
-      <p className="memory-content">{memory.content}</p>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
+        <p className="memory-content">{memory.content}</p>
+        {badge && (
+          <span className={`memory-badge ${badgeClass ?? ""}`}>{badge}</span>
+        )}
+      </div>
 
-      {metadata && (
+      {importance !== null && (
+        <div className="memory-importance-bar">
+          <div
+            className="memory-importance-fill"
+            style={{ width: `${Math.round(importance * 100)}%` }}
+          />
+        </div>
+      )}
+
+      {meta && (
         <div className="memory-metadata">
           {source && (
-            <span>
-              <strong>Source:</strong> {source}
-            </span>
+            <span><strong>source</strong> {source}</span>
           )}
-
           {importance !== null && (
-            <span>
-              <strong>Importance:</strong> {importance}
-            </span>
+            <span><strong>importance</strong> {importance.toFixed(2)}</span>
           )}
-
           {accessCount !== null && (
-            <span>
-              <strong>Accessed:</strong> {accessCount}{" "}
-              {accessCount === 1 ? "time" : "times"}
-            </span>
+            <span><strong>accessed</strong> {accessCount}×</span>
           )}
         </div>
       )}

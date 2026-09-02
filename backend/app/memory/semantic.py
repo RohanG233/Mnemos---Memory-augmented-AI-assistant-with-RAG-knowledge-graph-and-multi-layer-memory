@@ -56,7 +56,8 @@ class SemanticMemoryService:
 
     def process(
         self,
-        user_input
+        user_input,
+        user_id: str,
     ):
 
         prompt = SEMANTIC_PROMPT.format(
@@ -115,6 +116,7 @@ class SemanticMemoryService:
                 self.collection,
                 self.embedding_model,
                 user_input,
+                user_id=user_id,
                 threshold=(
                     MEMORY_SIMILARITY_THRESHOLD
                 )
@@ -145,23 +147,26 @@ class SemanticMemoryService:
             ],
 
             metadatas=[
-                {
-                    "source":
-                        "conversation",
+            {
+                "user_id":
+                    user_id,
 
-                    "created_at":
-                        now,
+                "source":
+                    "conversation",
 
-                    "last_accessed":
-                        now,
+                "created_at":
+                    now,
 
-                    "access_count":
-                        0,
+                "last_accessed":
+                    now,
 
-                    "importance":
-                        importance
-                }
-            ]
+                "access_count":
+                    0,
+
+                "importance":
+                    importance
+            }
+        ]
         )
 
         return {

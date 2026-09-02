@@ -1,10 +1,12 @@
 export interface UploadResponse {
-    message: string;
-    filename: string;
-    chunks: number;
+  message: string;
+  document_id: string;
+  filename: string;
+  chunks: number;
 }
 
 export interface UploadedDocument {
-    filename: string;
-    chunks: number;
+  document_id: string;
+  filename: string;
+  chunks: number;
 }

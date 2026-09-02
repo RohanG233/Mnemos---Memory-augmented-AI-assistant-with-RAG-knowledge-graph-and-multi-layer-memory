@@ -9,16 +9,16 @@ function MemoryList({ memories }: MemoryListProps) {
   if (memories.length === 0) {
     return (
       <div className="empty-state">
-        <h3>No memories yet</h3>
-        <p>Your stored memories will appear here.</p>
+        <h3>No long-term memories yet</h3>
+        <p>Share personal facts or preferences in chat and they'll be stored here.</p>
       </div>
     );
   }
 
   return (
     <div className="memory-list">
-      {memories.map((memory) => (
-        <MemoryItem key={memory.id} memory={memory} />
+      {memories.map((m) => (
+        <MemoryItem key={m.id} memory={m} badge="Semantic" badgeClass="memory-badge-semantic" />
       ))}
     </div>
   );

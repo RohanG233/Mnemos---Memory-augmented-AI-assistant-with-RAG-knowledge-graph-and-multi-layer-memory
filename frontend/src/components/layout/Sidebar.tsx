@@ -1,35 +1,50 @@
 import { NavLink } from "react-router-dom";
-
 import { useAuth } from "../../context/AuthContext";
+
+const NAV_ITEMS = [
+  { to: "/chat",      icon: "💬", label: "Chat" },
+  { to: "/documents", icon: "📄", label: "Documents" },
+  { to: "/memories",  icon: "🧠", label: "Memory" },
+  { to: "/graph",     icon: "🕸️",  label: "Knowledge Graph" },
+];
 
 function Sidebar() {
   const { logout } = useAuth();
 
   async function handleLogout() {
-    try {
-      await logout();
-    } catch (error) {
-      console.error("Logout failed:", error);
-    }
+    try { await logout(); }
+    catch (err) { console.error("Logout failed:", err); }
   }
 
   return (
     <aside className="sidebar">
-      <h1>ACAI</h1>
+      {/* Brand */}
+      <div className="sidebar-brand">
+        <div className="sidebar-logo">✦</div>
+        <h1>ACAI</h1>
+      </div>
 
+      {/* Navigation */}
       <nav>
-        <NavLink to="/chat">Chat</NavLink>
-
-        <NavLink to="/documents">Documents</NavLink>
-
-        <NavLink to="/memories">Memories</NavLink>
-
-        <NavLink to="/graph">Knowledge Graph</NavLink>
+        {NAV_ITEMS.map(({ to, icon, label }) => (
+          <NavLink key={to} to={to}>
+            <span className="nav-icon">{icon}</span>
+            {label}
+          </NavLink>
+        ))}
       </nav>
 
-      <button type="button" onClick={handleLogout} className="logout-button">
-        Logout
-      </button>
+      {/* Footer */}
+      <div className="sidebar-footer">
+        <button
+          type="button"
+          className="logout-button"
+          onClick={handleLogout}
+        >
+          <span className="nav-icon">↩</span>
+          Logout
+        </button>
+      </div>
     </aside>
   );
 }

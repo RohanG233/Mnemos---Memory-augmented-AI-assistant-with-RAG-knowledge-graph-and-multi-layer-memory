@@ -1,6 +1,10 @@
 .env
+.env.*
+!.env.example
 __pycache__/
-*.pyc
+*.py[cod]
 .venv/
 venv/
 data/chroma_db/
+data/graphs/
+*.log

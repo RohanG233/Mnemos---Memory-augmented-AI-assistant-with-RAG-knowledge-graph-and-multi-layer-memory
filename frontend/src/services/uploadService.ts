@@ -19,7 +19,6 @@ export async function uploadDocument(
     "/documents/upload",
     {
       method: "POST",
-
       body: formData,
     },
     accessToken
@@ -39,4 +38,60 @@ export async function uploadDocument(
   }
 
   return await response.json();
+}
+
+
+export async function getDocuments(
+  accessToken: string | null
+) {
+
+  const response = await apiFetch(
+    "/documents",
+    {
+      method: "GET",
+    },
+    accessToken
+  );
+
+  if (!response.ok) {
+
+    const errorData =
+      await response.json().catch(
+        () => null
+      );
+
+    throw new Error(
+      errorData?.detail ||
+      `Failed to load documents: ${response.status}`
+    );
+  }
+
+  return await response.json();
+}
+
+export async function deleteDocument(
+  documentId: string,
+  accessToken: string | null
+): Promise<void> {
+
+  const response = await apiFetch(
+    `/documents/${documentId}`,
+    {
+      method: "DELETE",
+    },
+    accessToken
+  );
+
+  if (!response.ok) {
+
+    const errorData =
+      await response.json().catch(
+        () => null
+      );
+
+    throw new Error(
+      errorData?.detail ||
+      `Failed to delete document: ${response.status}`
+    );
+  }
 }

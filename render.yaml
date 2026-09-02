@@ -1,0 +1,150 @@
+services:
+  # ===========================================================
+  # ACAI Backend — FastAPI Web Service
+  # ===========================================================
+  - type: web
+    name: acai-backend
+    runtime: python
+    region: oregon          # singapore / frankfurt / ohio available
+    plan: starter           # starter = $7/mo — required for persistent disk
+    rootDir: backend
+
+    buildCommand: pip install -r requirements.txt
+
+    # Render injects $PORT — do NOT hardcode a port number
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1
+
+    healthCheckPath: /health
+
+    # ---------------------------------------------------------
+    # Persistent Disk
+    # Required for ChromaDB and graph JSON files to survive
+    # restarts and redeployments.
+    # Not available on free tier — requires starter ($7/mo+).
+    # ---------------------------------------------------------
+    disk:
+      name: acai-data
+      mountPath: /data
+      sizeGB: 1
+
+    envVars:
+      # ---------------------------------------------------------
+      # MongoDB Atlas
+      # ---------------------------------------------------------
+      - key: MONGODB_URL
+        sync: false            # paste full Atlas connection string in dashboard
+
+      - key: MONGODB_DATABASE
+        value: acai
+
+      # ---------------------------------------------------------
+      # JWT
+      # Generate with: python -c "import secrets; print(secrets.token_hex(32))"
+      # ---------------------------------------------------------
+      - key: JWT_SECRET_KEY
+        sync: false
+
+      - key: JWT_ALGORITHM
+        value: HS256
+
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "15"
+
+      - key: REFRESH_TOKEN_EXPIRE_DAYS
+        value: "7"
+
+      # ---------------------------------------------------------
+      # Google OAuth
+      # GOOGLE_REDIRECT_URI must match exactly what you register
+      # in Google Cloud Console → Authorized redirect URIs
+      # Format: https://<your-render-service>.onrender.com/auth/google/callback
+      # ---------------------------------------------------------
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+
+      - key: GOOGLE_REDIRECT_URI
+        sync: false
+
+      # ---------------------------------------------------------
+      # Frontend origin
+      # FRONTEND_URL  = where the browser lands after OAuth
+      # ALLOWED_ORIGINS = same value, used for CORS
+      # Example:
+      #   FRONTEND_URL=https://acai-frontend.onrender.com
+      #   ALLOWED_ORIGINS=https://acai-frontend.onrender.com
+      # ---------------------------------------------------------
+      - key: FRONTEND_URL
+        sync: false
+
+      - key: ALLOWED_ORIGINS
+        sync: false
+
+      # ---------------------------------------------------------
+      # Ollama
+      # The default points to localhost which means Ollama must
+      # run inside this same service.  See README.md — Ollama
+      # section for the full setup options.
+      # ---------------------------------------------------------
+      - key: OLLAMA_URL
+        value: http://localhost:11434/api/chat
+
+      - key: LLM_MODEL
+        value: hf.co/bartowski/Llama-3.2-1B-Instruct-GGUF:latest
+
+      - key: LLM_TIMEOUT
+        value: "120"
+
+      # ---------------------------------------------------------
+      # Storage — point at the persistent disk mount path
+      # ---------------------------------------------------------
+      - key: CHROMA_PATH
+        value: /data/chroma_db
+
+      - key: GRAPH_DIRECTORY
+        value: /data/graphs
+
+      # ---------------------------------------------------------
+      # Cookies
+      # Must be "true" on HTTPS (Render always uses HTTPS)
+      # ---------------------------------------------------------
+      - key: COOKIE_SECURE
+        value: "true"
+
+  # ===========================================================
+  # ACAI Frontend — Static Site
+  # ===========================================================
+  - type: web
+    name: acai-frontend
+    runtime: static
+    region: oregon
+    rootDir: frontend
+
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+
+    # Single-page app — all routes serve index.html
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
+    headers:
+      # Security headers
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin
+
+    envVars:
+      # Set this to the deployed backend URL BEFORE the first deploy
+      # Example: https://acai-backend.onrender.com
+      - key: VITE_API_URL
+        sync: false

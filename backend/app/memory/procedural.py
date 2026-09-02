@@ -46,7 +46,8 @@ class ProceduralMemoryService:
 
     def process(
         self,
-        user_input
+        user_input,
+        user_id: str,
     ):
 
         prompt = (
@@ -77,6 +78,7 @@ class ProceduralMemoryService:
                 self.collection,
                 self.embedding_model,
                 user_input,
+                user_id=user_id,
                 threshold=(
                     MEMORY_SIMILARITY_THRESHOLD
                 )
@@ -108,23 +110,25 @@ class ProceduralMemoryService:
             ],
 
             metadatas=[
-                {
-                    "source":
-                        "user_instruction",
+            {
+                "user_id": user_id,
 
-                    "created_at":
-                        now,
+                "source":
+                    "user_instruction",
 
-                    "last_accessed":
-                        now,
+                "created_at":
+                    now,
 
-                    "access_count":
-                        0,
+                "last_accessed":
+                    now,
 
-                    "importance":
-                        1.0
-                }
-            ]
+                "access_count":
+                    0,
+
+                "importance":
+                    1.0
+            }
+        ]
         )
 
         return {

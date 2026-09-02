@@ -5,7 +5,9 @@ interface GraphControlsProps {
 function GraphControls({ onRefresh }: GraphControlsProps) {
   return (
     <div className="graph-controls">
-      <button onClick={onRefresh}>Refresh Graph</button>
+      <button type="button" onClick={onRefresh}>
+        ↺ Refresh
+      </button>
     </div>
   );
 }

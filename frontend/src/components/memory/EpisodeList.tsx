@@ -1,4 +1,5 @@
 import type { Episode } from "../../types/memory";
+import MemoryItem from "./MemoryItem";
 
 interface EpisodeListProps {
   episodes: Episode[];
@@ -6,19 +7,23 @@ interface EpisodeListProps {
 
 function EpisodeList({ episodes }: EpisodeListProps) {
   if (episodes.length === 0) {
-    return <p>No episodes stored yet.</p>;
+    return (
+      <div className="empty-state">
+        <h3>No episodes yet</h3>
+        <p>Significant decisions and milestones from your conversations will appear here.</p>
+      </div>
+    );
   }
 
   return (
     <div className="memory-list">
-      {episodes.map((episode) => (
-        <div className="memory-item" key={episode.id}>
-          <p>{episode.content}</p>
-
-          {episode.metadata && (
-            <small>{JSON.stringify(episode.metadata)}</small>
-          )}
-        </div>
+      {episodes.map((ep) => (
+        <MemoryItem
+          key={ep.id}
+          memory={ep}
+          badge="Episode"
+          badgeClass="memory-badge-episode"
+        />
       ))}
     </div>
   );
