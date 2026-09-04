@@ -1,12 +1,41 @@
 import os
 import sys
 import logging
+from pathlib import Path
 
 from dotenv import load_dotenv
 
-load_dotenv()
+# Load .env from the backend directory (where this file lives),
+# not from the working directory — prevents path mismatch when
+# uvicorn is started from a parent directory.
+_env_path = Path(__file__).resolve().parent.parent.parent / ".env"
+load_dotenv(dotenv_path=_env_path)
 
 logger = logging.getLogger(__name__)
+
+
+# -----------------------------
+# Project root — used to resolve
+# relative storage paths safely
+# -----------------------------
+
+# This is the backend/ directory regardless of working directory
+_BACKEND_DIR = Path(__file__).resolve().parent.parent.parent
+
+
+def _resolve_path(env_value: str, default_relative: str) -> str:
+    """
+    Return an absolute path.
+    - If the env var is already absolute, use it as-is.
+    - If it's relative (e.g. './data/chroma_db'), resolve it
+      from the backend/ directory so it is stable regardless
+      of where uvicorn is launched from.
+    """
+    raw = env_value or default_relative
+    p = Path(raw)
+    if p.is_absolute():
+        return str(p)
+    return str((_BACKEND_DIR / raw).resolve())
 
 
 # -----------------------------
@@ -32,14 +61,14 @@ LLM_TIMEOUT = int(
 # Storage Configuration
 # -----------------------------
 
-CHROMA_PATH = os.getenv(
-    "CHROMA_PATH",
-    "./data/chroma_db"
+CHROMA_PATH = _resolve_path(
+    os.getenv("CHROMA_PATH", ""),
+    "data/chroma_db"
 )
 
-GRAPH_DIRECTORY = os.getenv(
-    "GRAPH_DIRECTORY",
-    "./data/graphs"
+GRAPH_DIRECTORY = _resolve_path(
+    os.getenv("GRAPH_DIRECTORY", ""),
+    "data/graphs"
 )
 
 
@@ -81,7 +110,7 @@ MEMORY_FORGET_THRESHOLD = 0.15
 
 MONGODB_URL = os.getenv("MONGODB_URL", "mongodb://localhost:27017")
 
-MONGODB_DATABASE = os.getenv("MONGODB_DATABASE", "acai")
+MONGODB_DATABASE = os.getenv("MONGODB_DATABASE", "mnemos")
 
 JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
 
@@ -129,7 +158,7 @@ GOOGLE_SCOPES = [
 # -----------------------------
 
 # Comma-separated list of allowed origins.
-# e.g. "http://localhost:5173,https://acai.example.com"
+# e.g. "http://localhost:5173,https://mnemos.example.com"
 _cors_raw = os.getenv(
     "ALLOWED_ORIGINS",
     "http://localhost:5173,http://localhost:3000"

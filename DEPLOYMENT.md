@@ -1,4 +1,4 @@
-# ACAI Deployment Guide
+# Mnemos Deployment Guide
 
 ## Prerequisites
 
@@ -22,11 +22,18 @@ source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-Create `backend/.env`:
+Create `backend/.env` from the template:
+
+```bash
+cp backend/.env.example backend/.env
+# Edit .env and fill in your values
+```
+
+Or manually create it:
 
 ```
 MONGODB_URL=mongodb://localhost:27017
-MONGODB_DATABASE=acai
+MONGODB_DATABASE=mnemos
 JWT_SECRET_KEY=<generate: python -c "import secrets; print(secrets.token_hex(32))">
 JWT_ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=15
@@ -63,12 +70,8 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```bash
 cd frontend
 npm install
-```
-
-Create `frontend/.env`:
-
-```
-VITE_API_URL=http://localhost:8000
+cp frontend/.env.example frontend/.env
+# Default VITE_API_URL=http://localhost:8000 is correct for local dev
 ```
 
 Start frontend:
@@ -84,7 +87,7 @@ npm run dev
 | Variable | Required | Description |
 |---|---|---|
 | `MONGODB_URL` | Yes | MongoDB Atlas connection string |
-| `MONGODB_DATABASE` | No | Database name (default: `acai`) |
+| `MONGODB_DATABASE` | No | Database name (default: `mnemos`) |
 | `JWT_SECRET_KEY` | **Yes** | Strong random secret for JWTs |
 | `JWT_ALGORITHM` | No | JWT algorithm (default: `HS256`) |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | No | Default: `15` |
@@ -120,7 +123,7 @@ npm run dev
 3. Create OAuth 2.0 Client ID (Web application)
 4. Add Authorized Redirect URIs:
    - Development: `http://localhost:8000/auth/google/callback`
-   - Production: `https://YOUR-BACKEND.onrender.com/auth/google/callback`
+   - Production: `https://mnemos-backend.onrender.com/auth/google/callback`
 5. Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in Render
 
 ---
@@ -160,9 +163,9 @@ if ! command -v ollama &> /dev/null; then
   curl -fsSL https://ollama.com/install.sh | sh
 fi
 
-# Start Ollama in background
+# Start Ollama in background, store models on persistent disk
+export OLLAMA_MODELS=/data/ollama
 ollama serve &
-OLLAMA_PID=$!
 
 # Wait for Ollama to be ready
 echo "Waiting for Ollama..."
@@ -182,10 +185,10 @@ if ! ollama list | grep -q "$MODEL"; then
 fi
 
 # Start FastAPI
-exec uvicorn app.main:app --host 0.0.0.0 --port "${PORT:-8000}"
+exec uvicorn app.main:app --host 0.0.0.0 --port "${PORT:-8000}" --workers 1
 ```
 
-Set `startCommand` in `render.yaml` to: `bash start.sh`
+Set the Render start command to: `bash start.sh`
 
 Set env var `OLLAMA_MODELS=/data/ollama` so models persist across restarts.
 
@@ -201,13 +204,7 @@ Run Ollama on a separate always-on machine or cloud instance:
 - Set `OLLAMA_URL=http://<vps-ip>:11434/api/chat` in Render env vars
 - Restrict port 11434 to Render's IP range for security
 
-#### Option C: Hugging Face Inference Endpoints (Paid)
-
-Deploy the model to HuggingFace Inference Endpoints and point
-`OLLAMA_URL` at a compatible endpoint. Requires modifying
-`LLMService` to match their API format.
-
-#### Option D: Keep Local for Now
+#### Option C: Keep Local for Now
 
 If you are not ready for production LLM hosting, run the backend
 **without** deploying Ollama to Render. The backend will start and
@@ -235,9 +232,9 @@ graph) continue to work normally.
 3. Connect your GitHub repo
 4. Set Root Directory: `backend`
 5. Set Build Command: `pip install -r requirements.txt`
-6. Set Start Command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+6. Set Start Command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1`
 7. Set Python Version: `3.11` (via `runtime.txt`)
-8. Add all environment variables from the table above
+8. Add all environment variables listed above
 9. If using ChromaDB persistence: add a Persistent Disk at `/data`
    and update `CHROMA_PATH=/data/chroma_db` and `GRAPH_DIRECTORY=/data/graphs`
 
@@ -250,10 +247,19 @@ graph) continue to work normally.
 ```bash
 cd frontend
 # Set your production backend URL
-echo "VITE_API_URL=https://YOUR-BACKEND.onrender.com" > .env.production
+echo "VITE_API_URL=https://mnemos-backend.onrender.com" > .env.production
 npm run build
 # dist/ is the static site to deploy
 ```
+
+### Render Static Site
+
+1. Create a new **Static Site** on Render
+2. Root Directory: `frontend`
+3. Build Command: `npm install && npm run build`
+4. Publish Directory: `dist`
+5. Add environment variable: `VITE_API_URL=https://mnemos-backend.onrender.com`
+6. Add rewrite rule: `/* → /index.html` (required for React Router)
 
 ### Vercel
 
@@ -263,14 +269,6 @@ cd frontend
 vercel --prod
 # Set VITE_API_URL in Vercel project settings
 ```
-
-### Render Static Site
-
-1. Create a new **Static Site** on Render
-2. Root Directory: `frontend`
-3. Build Command: `npm install && npm run build`
-4. Publish Directory: `dist`
-5. Add environment variable: `VITE_API_URL=https://YOUR-BACKEND.onrender.com`
 
 ---
 
@@ -298,16 +296,16 @@ This means:
 
 ## CORS Configuration
 
-`ALLOWED_ORIGINS` must exactly match the frontend's origin.
+`ALLOWED_ORIGINS` must exactly match the frontend's origin (no trailing slash).
 
 Example:
 ```
-ALLOWED_ORIGINS=https://acai-frontend.vercel.app
+ALLOWED_ORIGINS=https://mnemos-frontend.onrender.com
 ```
 
 Multiple origins:
 ```
-ALLOWED_ORIGINS=https://acai-frontend.vercel.app,https://custom-domain.com
+ALLOWED_ORIGINS=https://mnemos-frontend.onrender.com,https://your-custom-domain.com
 ```
 
 Do **not** use `*` — cookies require explicit origins.

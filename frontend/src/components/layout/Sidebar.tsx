@@ -21,7 +21,7 @@ function Sidebar() {
       {/* Brand */}
       <div className="sidebar-brand">
         <div className="sidebar-logo">✦</div>
-        <h1>ACAI</h1>
+        <h1>Mnemos</h1>
       </div>
 
       {/* Navigation */}

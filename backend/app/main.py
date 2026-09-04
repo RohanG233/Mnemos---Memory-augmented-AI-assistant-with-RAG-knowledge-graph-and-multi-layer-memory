@@ -48,7 +48,13 @@ async def lifespan(app: FastAPI):
     # --- Validate required env vars ---
     validate_required_env_vars()
 
-    logger.info("Starting ACAI backend…")
+    logger.info("Starting Mnemos backend…")
+
+    # Log resolved storage paths immediately — makes it obvious
+    # if data is writing to the wrong location
+    from app.core.config import CHROMA_PATH, GRAPH_DIRECTORY
+    logger.info("ChromaDB path : %s", CHROMA_PATH)
+    logger.info("Graph directory: %s", GRAPH_DIRECTORY)
 
     # --- Import heavy services here to
     #     keep startup order explicit ---
@@ -89,12 +95,12 @@ async def lifespan(app: FastAPI):
     except Exception:
         logger.exception("Could not create graph directory.")
 
-    logger.info("ACAI backend started. Serving requests.")
+    logger.info("Mnemos backend started. Serving requests.")
 
     yield
 
     # --- Shutdown ---
-    logger.info("ACAI backend shutting down.")
+    logger.info("Mnemos backend shutting down.")
 
 
 # --------------------------------
@@ -102,8 +108,8 @@ async def lifespan(app: FastAPI):
 # --------------------------------
 
 app = FastAPI(
-    title="ACAI Backend",
-    description="AI memory and knowledge graph RAG backend",
+    title="Mnemos Backend",
+    description="Memory-augmented AI system combining RAG, knowledge graphs, and multi-layer memory.",
     version="1.0.0",
     lifespan=lifespan,
 )
@@ -147,7 +153,7 @@ app.include_router(graph_router)
 
 @app.get("/")
 def root():
-    return {"name": "ACAI Backend", "status": "running"}
+    return {"name": "Mnemos Backend", "status": "running"}
 
 
 @app.get("/health")
@@ -165,11 +171,10 @@ def health():
 def health_dependencies():
     """
     Diagnostic endpoint.
-    Checks MongoDB and Ollama reachability.
-    Do not expose publicly in production.
+    Checks MongoDB, Ollama, and storage paths.
     """
     import requests
-    from app.core.config import OLLAMA_URL, LLM_TIMEOUT
+    from app.core.config import OLLAMA_URL, CHROMA_PATH, GRAPH_DIRECTORY
     from app.core.database import mongo_client
 
     result: dict = {}
@@ -191,5 +196,14 @@ def health_dependencies():
         result["ollama"] = "ok" if r.ok else f"http {r.status_code}"
     except Exception as exc:
         result["ollama"] = f"error: {exc}"
+
+    # Storage — show resolved absolute paths and whether they exist
+    import os
+    result["storage"] = {
+        "chroma_path": CHROMA_PATH,
+        "chroma_exists": os.path.isdir(CHROMA_PATH),
+        "graph_directory": GRAPH_DIRECTORY,
+        "graph_directory_exists": os.path.isdir(GRAPH_DIRECTORY),
+    }
 
     return result

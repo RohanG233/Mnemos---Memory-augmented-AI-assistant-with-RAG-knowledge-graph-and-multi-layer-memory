@@ -1,9 +1,9 @@
 services:
   # ===========================================================
-  # ACAI Backend — FastAPI Web Service
+  # Mnemos Backend — FastAPI Web Service
   # ===========================================================
   - type: web
-    name: acai-backend
+    name: mnemos-backend
     runtime: python
     region: oregon          # singapore / frankfurt / ohio available
     plan: starter           # starter = $7/mo — required for persistent disk
@@ -23,7 +23,7 @@ services:
     # Not available on free tier — requires starter ($7/mo+).
     # ---------------------------------------------------------
     disk:
-      name: acai-data
+      name: mnemos-data
       mountPath: /data
       sizeGB: 1
 
@@ -35,7 +35,7 @@ services:
         sync: false            # paste full Atlas connection string in dashboard
 
       - key: MONGODB_DATABASE
-        value: acai
+        value: mnemos
 
       # ---------------------------------------------------------
       # JWT
@@ -73,8 +73,8 @@ services:
       # FRONTEND_URL  = where the browser lands after OAuth
       # ALLOWED_ORIGINS = same value, used for CORS
       # Example:
-      #   FRONTEND_URL=https://acai-frontend.onrender.com
-      #   ALLOWED_ORIGINS=https://acai-frontend.onrender.com
+      #   FRONTEND_URL=https://mnemos-frontend.onrender.com
+      #   ALLOWED_ORIGINS=https://mnemos-frontend.onrender.com
       # ---------------------------------------------------------
       - key: FRONTEND_URL
         sync: false
@@ -98,6 +98,15 @@ services:
         value: "120"
 
       # ---------------------------------------------------------
+      # Embeddings — Hugging Face free Inference API
+      # Get a free token at: https://huggingface.co/settings/tokens
+      # (New token → Access: Read)
+      # Without this, semantic search falls back to hash-based dummies.
+      # ---------------------------------------------------------
+      - key: HF_API_TOKEN
+        sync: false
+
+      # ---------------------------------------------------------
       # Storage — point at the persistent disk mount path
       # ---------------------------------------------------------
       - key: CHROMA_PATH
@@ -114,10 +123,10 @@ services:
         value: "true"
 
   # ===========================================================
-  # ACAI Frontend — Static Site
+  # Mnemos Frontend — Static Site
   # ===========================================================
   - type: web
-    name: acai-frontend
+    name: mnemos-frontend
     runtime: static
     region: oregon
     rootDir: frontend
@@ -132,7 +141,6 @@ services:
         destination: /index.html
 
     headers:
-      # Security headers
       - path: /*
         name: X-Frame-Options
         value: DENY
@@ -145,6 +153,6 @@ services:
 
     envVars:
       # Set this to the deployed backend URL BEFORE the first deploy
-      # Example: https://acai-backend.onrender.com
+      # Example: https://mnemos-backend.onrender.com
       - key: VITE_API_URL
         sync: false

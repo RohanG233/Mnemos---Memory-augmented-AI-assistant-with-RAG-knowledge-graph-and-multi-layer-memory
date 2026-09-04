@@ -149,3 +149,32 @@ export async function sendMessage(
 
   return response.json();
 }
+
+
+// --------------------------------
+// Get Messages for a Conversation
+// --------------------------------
+
+export interface ServerMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export async function getConversationMessages(
+  conversationId: string,
+  accessToken: string | null
+): Promise<ServerMessage[]> {
+
+  const response = await apiFetch(
+    `/chat/conversations/${conversationId}/messages`,
+    { method: "GET" },
+    accessToken
+  );
+
+  if (!response.ok) {
+    throw new Error(`Failed to load messages: ${response.status}`);
+  }
+
+  const data = await response.json();
+  return data.messages ?? [];
+}

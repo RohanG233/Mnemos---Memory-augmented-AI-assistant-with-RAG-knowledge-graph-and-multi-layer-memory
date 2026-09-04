@@ -1,138 +1,109 @@
+"""
+Procedural memory — stores behavioural instructions.
+
+Detection strategy: keyword matching instead of LLM classification.
+The 1B model is too unreliable for Yes/No classification.
+We look for explicit instruction patterns in the user message.
+"""
+
+import logging
 import time
 import uuid
 
-from app.memory.maintenance import (
-    find_similar_memory
-)
+from app.memory.maintenance import find_similar_memory
+from app.core.config import MEMORY_SIMILARITY_THRESHOLD
 
-from app.core.config import (
-    MEMORY_SIMILARITY_THRESHOLD
-)
+logger = logging.getLogger(__name__)
 
 
-PROCEDURE_PROMPT = """
-Should this user message be stored as
-procedural memory?
+# Keywords that strongly signal a behavioural instruction
+_INSTRUCTION_SIGNALS = [
+    "always ",
+    "never ",
+    "don't ",
+    "do not ",
+    "stop ",
+    "please always",
+    "please never",
+    "from now on",
+    "every time",
+    "make sure you",
+    "remember to always",
+    "i want you to always",
+    "i need you to always",
+    "respond in",
+    "reply in",
+    "answer in",
+    "use a",
+    "be more",
+    "be less",
+    "start every",
+    "end every",
+    "format your",
+    "keep your",
+]
 
-Store only if it is a long-term instruction
-for how the assistant should behave.
 
-Reply ONLY:
-
-Yes
-
-or
-
-No
-
-User:
-{user_input}
-"""
+def _is_instruction(text: str) -> bool:
+    """
+    Returns True if the message looks like a behavioural instruction.
+    Uses fast keyword matching — no LLM call needed.
+    """
+    lowered = text.lower()
+    return any(signal in lowered for signal in _INSTRUCTION_SIGNALS)
 
 
 class ProceduralMemoryService:
 
-    def __init__(
-        self,
-        collection,
-        embedding_model,
-        llm_service
-    ):
-
+    def __init__(self, collection, embedding_model, llm_service):
         self.collection = collection
         self.embedding_model = embedding_model
-        self.llm_service = llm_service
+        self.llm_service = llm_service  # kept for interface compatibility
 
+    def process(self, user_input: str, user_id: str):
 
-    def process(
-        self,
-        user_input,
-        user_id: str,
-    ):
-
-        prompt = (
-            PROCEDURE_PROMPT.format(
-                user_input=user_input
-            )
-        )
-
-        decision = (
-            self.llm_service
-            .generate(
-                [
-                    {
-                        "role": "system",
-                        "content": prompt
-                    }
-                ]
-            )
-            .strip()
-            .lower()
-        )
-
-        if decision != "yes":
+        if not _is_instruction(user_input):
             return None
 
-        similar_procedure = (
-            find_similar_memory(
-                self.collection,
-                self.embedding_model,
-                user_input,
-                user_id=user_id,
-                threshold=(
-                    MEMORY_SIMILARITY_THRESHOLD
-                )
-            )
+        logger.info(
+            "Procedural: instruction detected, storing for user=%s | %r",
+            user_id,
+            user_input[:80],
         )
 
-        if similar_procedure:
+        similar = find_similar_memory(
+            self.collection,
+            self.embedding_model,
+            user_input,
+            user_id=user_id,
+            threshold=MEMORY_SIMILARITY_THRESHOLD,
+        )
 
+        if similar:
             return {
                 "stored": False,
                 "duplicate": True,
-                "procedure":
-                    similar_procedure[
-                        "document"
-                    ]
+                "procedure": similar["document"],
             }
 
-        procedure_id = str(
-            uuid.uuid4()
-        )
-
+        procedure_id = str(uuid.uuid4())
         now = time.time()
 
         self.collection.add(
             ids=[procedure_id],
-
-            documents=[
-                user_input
-            ],
-
-            metadatas=[
-            {
+            documents=[user_input],
+            metadatas=[{
                 "user_id": user_id,
-
-                "source":
-                    "user_instruction",
-
-                "created_at":
-                    now,
-
-                "last_accessed":
-                    now,
-
-                "access_count":
-                    0,
-
-                "importance":
-                    1.0
-            }
-        ]
+                "source": "user_instruction",
+                "created_at": now,
+                "last_accessed": now,
+                "access_count": 0,
+                "importance": 1.0,
+            }],
         )
 
         return {
             "stored": True,
             "duplicate": False,
-            "id": procedure_id
+            "id": procedure_id,
         }

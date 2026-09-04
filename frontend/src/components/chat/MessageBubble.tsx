@@ -13,7 +13,7 @@ function MessageBubble({ message }: MessageBubbleProps) {
       <div className={`message-bubble ${isUser ? "user-bubble" : "assistant-bubble"}`}>
 
         <div className="message-role">
-          {isUser ? "You" : "ACAI"}
+          {isUser ? "You" : "Mnemos"}
         </div>
 
         {isUser ? (

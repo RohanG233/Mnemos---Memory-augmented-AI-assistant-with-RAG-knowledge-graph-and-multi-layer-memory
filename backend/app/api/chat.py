@@ -32,6 +32,7 @@ def create_conversation(
         "conversation_id": conversation["conversation_id"],
         "title": conversation["title"],
         "created_at": conversation["created_at"].isoformat(),
+        "updated_at": conversation["updated_at"].isoformat(),
     }
 
 
@@ -144,6 +145,11 @@ def chat(
     )
 
     if messages is None:
+        logger.warning(
+            "Conversation not found — conversation_id=%s user_id=%s",
+            request.conversation_id,
+            user_id,
+        )
         raise HTTPException(
             status_code=404,
             detail="Conversation not found or does not belong to you.",

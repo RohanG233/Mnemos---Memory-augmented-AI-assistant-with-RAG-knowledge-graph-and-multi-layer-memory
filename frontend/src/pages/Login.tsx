@@ -36,8 +36,8 @@ function Login() {
           ✦
         </div>
 
-        <h1>ACAI</h1>
-        <p>AI Memory &amp; Knowledge Graph</p>
+        <h1>Mnemos</h1>
+        <p>Memory-Augmented AI</p>
 
         {error && <p className="login-error">{error}</p>}
 

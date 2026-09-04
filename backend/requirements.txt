@@ -1,5 +1,5 @@
 # ============================================================
-# ACAI Backend — Production Dependencies
+# Mnemos Backend — Production Dependencies
 # Target: Python 3.11, Linux (Render)
 #
 # Versions sourced from:
@@ -50,7 +50,7 @@ safetensors==0.8.0
 huggingface_hub==1.20.1
 
 # -----------------------------------------------
-# PyTorch — CPU only (no GPU on Render free tier)
+# PyTorch — CPU only
 # -----------------------------------------------
 torch==2.12.1
 

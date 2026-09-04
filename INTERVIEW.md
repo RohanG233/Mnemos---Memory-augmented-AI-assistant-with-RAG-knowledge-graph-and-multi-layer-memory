@@ -1,4 +1,4 @@
-# ACAI — Backend/Frontend Connectivity Deep-Dive
+# Mnemos — Backend/Frontend Connectivity Deep-Dive
 
 > This document explains how the React frontend and FastAPI backend communicate,
 > covering every protocol decision, data contract, authentication flow,
@@ -231,7 +231,7 @@ All service files (`chatService.ts`, `uploadService.ts`, etc.) call `apiFetch` r
 
 ## 5. CORS Configuration
 
-**Why CORS matters here**: The frontend (e.g. `https://acai-frontend.onrender.com`) and backend (`https://acai-backend.onrender.com`) are different origins. The browser blocks cross-origin requests unless the server sends correct CORS headers.
+**Why CORS matters here**: The frontend (e.g. `https://mnemos-frontend.onrender.com`) and backend (`https://mnemos-backend.onrender.com`) are different origins. The browser blocks cross-origin requests unless the server sends correct CORS headers.
 
 **Backend configuration** (`app/main.py`):
 
@@ -394,7 +394,7 @@ FastAPI's default 422 validation errors include field-level detail which the fro
 
 ## 10. Frontend State Management
 
-ACAI uses no global state management library (no Redux, no Zustand). State is managed through:
+Mnemos uses no global state management library (no Redux, no Zustand). State is managed through:
 
 | State | Where | How |
 |---|---|---|
@@ -431,7 +431,7 @@ This avoids the "stale closure" problem where `rooms` inside a `then()` callback
 
 ## 11. LocalStorage and Persistence
 
-Chat rooms are persisted to `localStorage` under the key `acai_chat_rooms`.
+Chat rooms are persisted to `localStorage` under the key `mnemos_chat_rooms`.
 
 **What is stored per room:**
 ```typescript
@@ -566,11 +566,11 @@ Browser
   ▼
 Render CDN/Load Balancer
   │
-  ├──► acai-frontend.onrender.com  (Render Static Site)
+  ├──► mnemos-frontend.onrender.com  (Render Static Site)
   │    Serves index.html + JS bundle
   │    VITE_API_URL baked in at build time
   │
-  └──► acai-backend.onrender.com   (Render Web Service)
+  └──► mnemos-backend.onrender.com   (Render Web Service)
        FastAPI + Uvicorn
        │
        ├──► MongoDB Atlas          (external, HTTPS)
@@ -578,7 +578,7 @@ Render CDN/Load Balancer
        └──► ChromaDB               (local persistent disk /data/chroma_db)
 ```
 
-**Critical constraint**: `VITE_API_URL` is a build-time constant in the frontend JavaScript bundle. The frontend JavaScript literally contains the string `https://acai-backend.onrender.com` after building. There is no runtime configuration file.
+**Critical constraint**: `VITE_API_URL` is a build-time constant in the frontend JavaScript bundle. The frontend JavaScript literally contains the string `https://mnemos-backend.onrender.com` after building. There is no runtime configuration file.
 
 This means if the backend URL ever changes, the frontend must be rebuilt and redeployed.
 
@@ -645,7 +645,7 @@ Short-lived access tokens (15 min) limit the window of abuse if a token is inter
 
 **Q: Why not store the access token in localStorage?**
 
-localStorage is accessible to any JavaScript on the page, including injected scripts (XSS). React state (in-memory) is not persistent across page refreshes, but the silent refresh on mount (via the HttpOnly cookie) immediately restores it. The trade-off: if Ollama is down and the page refreshes, the user sees a 503 on their next message rather than being logged out.
+localStorage is accessible to any JavaScript on the page, including injected scripts (XSS). React state (in-memory) is not persistent across page refreshes, but the silent refresh on mount (via the HttpOnly cookie) immediately restores it.
 
 **Q: Why is VITE_API_URL a build-time variable?**
 
@@ -657,7 +657,7 @@ Vite's `import.meta.env` variables are replaced with literal strings during `vit
 
 **Q: Why use ChromaDB for memories instead of MongoDB?**
 
-Memories need to be retrieved by semantic similarity (embedding distance), not by exact match. ChromaDB is a vector database that supports efficient approximate nearest-neighbour search over embeddings. MongoDB does not support vector search in the free tier. ChromaDB also stores the embeddings themselves, so re-querying does not require re-embedding.
+Memories need to be retrieved by semantic similarity (embedding distance), not by exact match. ChromaDB is a vector database that supports efficient approximate nearest-neighbour search over embeddings. MongoDB does not support vector search in the free tier.
 
 **Q: How does user isolation work in ChromaDB?**
 
@@ -665,27 +665,23 @@ ChromaDB's `where` filter is passed to every query:
 ```python
 collection.query(query_embeddings=[...], where={"user_id": user_id}, ...)
 ```
-ChromaDB supports metadata filtering. All documents, memories, episodes, and procedures are stored with `{"user_id": user_id}` in their metadata, and all queries filter on this field.
+All documents, memories, episodes, and procedures are stored with `{"user_id": user_id}` in their metadata, and all queries filter on this field.
 
 **Q: What is Reciprocal Rank Fusion and why use it?**
 
-RRF combines ranked lists from multiple retrievers (BM25 and vector) into a single ranked list without needing to calibrate the scores from each retriever. Score from each ranker: `1 / (k + rank)`. Documents appearing near the top of multiple rankers get higher fused scores. It is effective because BM25 is good at keyword matching while vector search is good at semantic similarity — they are complementary.
+RRF combines ranked lists from multiple retrievers (BM25 and vector) into a single ranked list without needing to calibrate the scores from each retriever. Score from each ranker: `1 / (k + rank)`. It is effective because BM25 is good at keyword matching while vector search is good at semantic similarity — they are complementary.
 
 **Q: Why is `--workers 1` set for Uvicorn?**
 
-The BM25 index and short-term `ConversationMemory` are held in process memory as Python dictionaries. Multiple workers would have separate copies of these, causing consistency issues (e.g., a document indexed by worker 1 is invisible to worker 2). For horizontal scaling, these would need to be externalised to Redis or a database. The `--workers 1` flag makes this limitation explicit.
+The BM25 index and short-term `ConversationMemory` are held in process memory as Python dictionaries. Multiple workers would have separate copies of these, causing consistency issues. For horizontal scaling, these would need to be externalised to Redis or a database.
 
 **Q: What is the conversation ID race condition and how was it fixed?**
 
-When `useChat` mounts, two React effects run:
-1. Load rooms from localStorage → `setRooms(saved)` (async)
-2. If `rooms.length === 0` and `accessToken` is set → create a new room
-
-Because React batches state updates, effect 2 could see `rooms.length === 0` before effect 1's `setRooms` has committed — even if rooms were found in localStorage. The fix: a `loadComplete` boolean state is set after the load is done, and effect 2 waits for `loadComplete === true` before checking `rooms.length`.
+When `useChat` mounts, two React effects run: one loads rooms from localStorage, the other creates a new room if `rooms.length === 0`. Because React batches state updates, the second effect could fire before the first effect's `setRooms` has committed. The fix: a `loadComplete` boolean state is set after the load is done, and the second effect waits for `loadComplete === true` before checking `rooms.length`.
 
 **Q: How does the access token reach the frontend after OAuth?**
 
-OAuth flows with a redirect cannot carry JSON bodies — they use HTTP redirects (302). The backend appends the access token as a URL query parameter: `FRONTEND_URL/chat?access_token=<JWT>`. The frontend reads this in `extractAccessTokenFromUrl()`, stores it in React state, and immediately strips it from the URL bar using `window.history.replaceState`. This avoids the token appearing in browser history or being logged by proxies.
+OAuth flows with a redirect cannot carry JSON bodies. The backend appends the access token as a URL query parameter: `FRONTEND_URL/chat?access_token=<JWT>`. The frontend reads this in `extractAccessTokenFromUrl()`, stores it in React state, and immediately strips it from the URL bar using `window.history.replaceState`.
 
 **Q: Why does the frontend filter legacy rooms from localStorage?**
 
