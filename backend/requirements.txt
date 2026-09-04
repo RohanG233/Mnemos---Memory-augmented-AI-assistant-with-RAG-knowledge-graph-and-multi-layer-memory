@@ -1,10 +1,10 @@
 # ============================================================
 # Mnemos Backend — Production Dependencies
-# Target: Python 3.11, Linux (Render)
+# Target: Python 3.11, Linux (Render free tier 512 MB)
 #
-# Versions sourced from:
-#   - Original project requirements.txt (packages unique to this env)
-#   - System pip show (packages installed in active Python)
+# All versions verified from: pip freeze in .venv
+# No PyTorch / sentence-transformers — uses ONNXMiniLM_L6_V2
+# which ships inside chromadb (~80 MB, fits free tier)
 # ============================================================
 
 # -----------------------------------------------
@@ -30,6 +30,8 @@ typing_extensions==4.16.0
 # -----------------------------------------------
 python-jose[cryptography]==3.5.0
 passlib[bcrypt]==1.7.4
+bcrypt==5.0.0
+cryptography==50.0.1
 requests-oauthlib==2.0.0
 oauthlib==3.3.1
 
@@ -42,11 +44,14 @@ dnspython==2.8.0
 # -----------------------------------------------
 # ChromaDB + Embeddings
 # -----------------------------------------------
-# ONNXMiniLM_L6_V2 ships inside chromadb — no extra packages needed.
-# Same all-MiniLM-L6-v2 model, 384-dim vectors, ~80 MB RAM via onnxruntime.
-# No PyTorch, no sentence-transformers — fits on Render free tier (512 MB).
+# ONNXMiniLM_L6_V2 is bundled inside chromadb.
+# onnxruntime is its only runtime dependency.
+# No PyTorch, no sentence-transformers.
 chromadb==1.5.9
-onnxruntime==1.20.1
+onnxruntime==1.29.0
+tokenizers==0.23.2
+huggingface_hub==1.30.0
+numpy==2.4.4
 
 # -----------------------------------------------
 # NLP / Retrieval
@@ -70,26 +75,37 @@ httpx==0.28.1
 # -----------------------------------------------
 # Data / Compute
 # -----------------------------------------------
-numpy==2.4.4
 scipy==1.17.1
 scikit-learn==1.8.0
 
 # -----------------------------------------------
 # Utilities
 # -----------------------------------------------
-# bson is bundled with pymongo — do NOT install standalone bson
 anyio==4.14.0
 packaging==26.2
 tqdm==4.69.0
+orjson==3.12.0
+PyYAML==6.0.3
 
 # -----------------------------------------------
-# OpenTelemetry (required by chromadb)
+# ChromaDB runtime dependencies
 # -----------------------------------------------
+grpcio==1.83.0
 opentelemetry-api==1.44.0
 opentelemetry-sdk==1.44.0
 opentelemetry-exporter-otlp-proto-grpc==1.44.0
-
-# -----------------------------------------------
-# gRPC (required by chromadb opentelemetry exporter)
-# -----------------------------------------------
-grpcio==1.83.0
+opentelemetry-semantic-conventions==0.65b0
+opentelemetry-proto==1.44.0
+opentelemetry-exporter-otlp-proto-common==1.44.0
+googleapis-common-protos==1.75.3
+protobuf==7.36.1
+overrides==7.7.0
+mmh3==5.3.0
+PyPika==0.51.1
+xxhash==4.0.1
+flatbuffers==25.12.19
+importlib_resources==7.1.0
+uuid_utils==0.17.0
+zstandard==0.25.0
+typer==0.27.2
+rich==15.0.0
