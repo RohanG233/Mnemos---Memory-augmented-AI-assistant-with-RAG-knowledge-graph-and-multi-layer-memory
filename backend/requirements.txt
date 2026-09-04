@@ -42,17 +42,11 @@ dnspython==2.8.0
 # -----------------------------------------------
 # ChromaDB + Embeddings
 # -----------------------------------------------
+# ONNXMiniLM_L6_V2 ships inside chromadb — no extra packages needed.
+# Same all-MiniLM-L6-v2 model, 384-dim vectors, ~80 MB RAM via onnxruntime.
+# No PyTorch, no sentence-transformers — fits on Render free tier (512 MB).
 chromadb==1.5.9
-sentence-transformers==5.6.0
-transformers==5.12.1
-tokenizers==0.22.2
-safetensors==0.8.0
-huggingface_hub==1.20.1
-
-# -----------------------------------------------
-# PyTorch — CPU only
-# -----------------------------------------------
-torch==2.12.1
+onnxruntime==1.20.1
 
 # -----------------------------------------------
 # NLP / Retrieval

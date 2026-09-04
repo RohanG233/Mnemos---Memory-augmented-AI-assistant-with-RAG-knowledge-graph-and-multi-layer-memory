@@ -1,10 +1,10 @@
 import logging
 import os
 
+import numpy as np
 import chromadb
-from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
+from chromadb.utils.embedding_functions import ONNXMiniLM_L6_V2
 from pymongo import MongoClient
-from sentence_transformers import SentenceTransformer
 
 from app.core.config import (
     CHROMA_PATH,
@@ -26,26 +26,52 @@ chroma_client = chromadb.PersistentClient(path=CHROMA_PATH)
 
 
 # -------------------------------------------------------
-# Embedding function for ChromaDB collections
-# Uses sentence-transformers/all-MiniLM-L6-v2 locally
+# Embedding function
+#
+# ONNXMiniLM_L6_V2 ships inside chromadb itself.
+# It runs all-MiniLM-L6-v2 via onnxruntime — same model,
+# same 384-dim vectors, zero extra packages, ~80 MB RAM.
+# No PyTorch. No sentence-transformers. Works on Render free tier.
 # -------------------------------------------------------
 
-embedding_function = SentenceTransformerEmbeddingFunction(
-    model_name="all-MiniLM-L6-v2"
-)
+embedding_function = ONNXMiniLM_L6_V2()
 
-logger.info("ChromaDB: using SentenceTransformer embedding function (all-MiniLM-L6-v2)")
+logger.info("ChromaDB: using ONNXMiniLM_L6_V2 embedding function (~80 MB, no PyTorch).")
 
 
 # -------------------------------------------------------
-# Sentence Transformer model
-# Used directly for .encode() calls in rag_service.py
-# and maintenance.py
+# Lightweight model wrapper
+#
+# rag_service.py and maintenance.py call model.encode(text)
+# and expect a numpy array back.
+# We wrap ONNXMiniLM_L6_V2 to provide that interface.
 # -------------------------------------------------------
 
-model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
+class _OnnxEmbedder:
+    """
+    Thin wrapper around ONNXMiniLM_L6_V2 that exposes
+    the same .encode(text) → np.ndarray interface that
+    the rest of the codebase expects.
+    """
 
-logger.info("SentenceTransformer model loaded.")
+    def __init__(self, fn):
+        self._fn = fn
+
+    def encode(self, text):
+        """
+        text: str  → returns np.ndarray shape (384,)
+        text: list → returns np.ndarray shape (N, 384)
+        """
+        single = isinstance(text, str)
+        inputs = [text] if single else list(text)
+        vectors = self._fn(inputs)          # returns list[list[float]]
+        arr = np.array(vectors, dtype=np.float32)
+        return arr[0] if single else arr
+
+
+model = _OnnxEmbedder(embedding_function)
+
+logger.info("Embedding model wrapper ready.")
 
 
 # -------------------------------------------------------
