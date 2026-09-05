@@ -22,6 +22,18 @@ import { setRefreshHandler } from "../services/api";
 // Used as a fallback when the HttpOnly cookie is blocked cross-origin.
 const SESSION_TOKEN_KEY = "mnemos_access_token";
 
+function saveSession(token: string | null) {
+  if (token) {
+    sessionStorage.setItem(SESSION_TOKEN_KEY, token);
+  } else {
+    sessionStorage.removeItem(SESSION_TOKEN_KEY);
+  }
+}
+
+function loadSession(): string | null {
+  return sessionStorage.getItem(SESSION_TOKEN_KEY);
+}
+
 
 interface AuthContextType {
   accessToken: string | null;
@@ -41,24 +53,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const hasRestoredRef = useRef(false);
 
 
-  // --------------------------------
-  // Persist token to sessionStorage
-  // so page refreshes don't lose login
-  // --------------------------------
-
   function storeToken(token: string | null) {
-    if (token) {
-      sessionStorage.setItem(SESSION_TOKEN_KEY, token);
-    } else {
-      sessionStorage.removeItem(SESSION_TOKEN_KEY);
-    }
+    saveSession(token);
     setAccessToken(token);
   }
 
-
-  // --------------------------------
-  // Restore authentication on mount
-  // --------------------------------
 
   useEffect(() => {
     if (hasRestoredRef.current) return;
@@ -66,27 +65,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     async function restoreAuth() {
 
-      // 1. Check for token in URL hash/query (just returned from OAuth)
+      // 1. Fresh OAuth callback — token is in the URL hash fragment
+      //    (#access_token=...). Clear any stale session first.
       const urlToken = extractAccessTokenFromUrl();
       if (urlToken) {
+        saveSession(null); // clear stale token before storing new one
         storeToken(urlToken);
         setLoading(false);
         return;
       }
 
-      // 2. Check sessionStorage (page refresh within same session)
-      const sessionToken = sessionStorage.getItem(SESSION_TOKEN_KEY);
+      // 2. Page refresh — reuse session token if present.
+      //    Validate it by calling /auth/me before trusting it.
+      const sessionToken = loadSession();
       if (sessionToken) {
-        setAccessToken(sessionToken);
-        setLoading(false);
-        return;
+        try {
+          // Quick validation: if /auth/me returns 200, token is still valid
+          const { API_URL } = await import("../services/api");
+          const res = await fetch(`${API_URL}/auth/me`, {
+            headers: { Authorization: `Bearer ${sessionToken}` },
+            credentials: "include",
+          });
+          if (res.ok) {
+            setAccessToken(sessionToken);
+            setLoading(false);
+            return;
+          }
+          // Token rejected — try to refresh silently
+          saveSession(null);
+        } catch {
+          saveSession(null);
+        }
       }
 
-      // 3. Try HttpOnly cookie refresh (works when cookie is present)
+      // 3. Try HttpOnly cookie refresh (works when cookie is not blocked)
       try {
         const token = await refreshAccessToken();
         storeToken(token);
       } catch {
+        // Cookie blocked or expired — user must log in again
         storeToken(null);
       } finally {
         setLoading(false);
@@ -94,21 +111,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     restoreAuth();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-
-  // --------------------------------
-  // Login
-  // --------------------------------
 
   async function login(): Promise<void> {
     await loginWithGoogle();
   }
 
-
-  // --------------------------------
-  // Refresh Token
-  // --------------------------------
 
   async function refresh(): Promise<string | null> {
     try {
@@ -116,6 +126,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       storeToken(token);
       return token;
     } catch {
+      // Refresh failed — clear stale session so user gets login prompt
       storeToken(null);
       return null;
     }
@@ -127,10 +138,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
 
-  // --------------------------------
-  // Logout
-  // --------------------------------
-
   async function logout(): Promise<void> {
     try {
       await logoutRequest();
@@ -141,15 +148,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 
   return (
-    <AuthContext.Provider
-      value={{
-        accessToken,
-        loading,
-        login,
-        refresh,
-        logout,
-      }}
-    >
+    <AuthContext.Provider value={{ accessToken, loading, login, refresh, logout }}>
       {children}
     </AuthContext.Provider>
   );
