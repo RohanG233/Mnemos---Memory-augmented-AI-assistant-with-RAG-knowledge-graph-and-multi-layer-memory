@@ -2,6 +2,7 @@ import {
   createContext,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from "react";
 
@@ -28,39 +29,44 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 
-// --------------------------------
-// Auth Provider
-// --------------------------------
-
 export function AuthProvider({ children }: { children: ReactNode }) {
 
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Prevent the refresh call from running if we already have
+  // a token from the URL (OAuth callback) — avoids a race where
+  // restoreAuth clobbers the just-extracted token with a 401.
+  const hasRestoredRef = useRef(false);
 
-  // --------------------------------
-  // Restore Authentication on mount
-  // --------------------------------
 
   useEffect(() => {
+    // Guard: only run once even in React StrictMode double-invoke
+    if (hasRestoredRef.current) return;
+    hasRestoredRef.current = true;
 
     async function restoreAuth() {
 
-      // 1. Check if the backend just redirected back with a token in the URL
-      //    (after Google OAuth callback)
+      // 1. Check for access_token in the URL (OAuth callback redirect)
       const urlToken = extractAccessTokenFromUrl();
 
       if (urlToken) {
+        // We have a fresh token from the just-completed OAuth flow.
+        // Store it and stop — do NOT call /auth/refresh here because:
+        //   a) we don't need to (we have the token already)
+        //   b) the HttpOnly cookie may not be readable yet in the
+        //      browser due to cross-site redirect cookie timing
         setAccessToken(urlToken);
         setLoading(false);
         return;
       }
 
-      // 2. Try to silently refresh via the HttpOnly cookie
+      // 2. No URL token — try to silently restore via the HttpOnly cookie
       try {
         const token = await refreshAccessToken();
         setAccessToken(token);
       } catch {
+        // Cookie missing, expired, or invalid — user must log in
         setAccessToken(null);
       } finally {
         setLoading(false);
@@ -95,7 +101,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  // Register the refresh handler with apiFetch
   useEffect(() => {
     setRefreshHandler(refresh);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -130,10 +135,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
-
-// --------------------------------
-// Auth Hook
-// --------------------------------
 
 export function useAuth() {
   const context = useContext(AuthContext);

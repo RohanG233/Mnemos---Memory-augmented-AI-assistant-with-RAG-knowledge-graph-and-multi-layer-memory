@@ -35,12 +35,16 @@ _REFRESH_MAX_AGE = REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
 
 def _set_refresh_cookie(response, refresh_token: str) -> None:
     """Attach the HttpOnly refresh-token cookie to a response."""
+    # Read at call time so env var changes take effect after redeploy
+    cookie_secure = os.getenv("COOKIE_SECURE", "true").lower() != "false"
+    cookie_samesite = "none" if cookie_secure else "lax"
+
     response.set_cookie(
         key="refresh_token",
         value=refresh_token,
         httponly=True,
-        secure=_COOKIE_SECURE,
-        samesite=_COOKIE_SAMESITE,
+        secure=cookie_secure,
+        samesite=cookie_samesite,
         max_age=_REFRESH_MAX_AGE,
         path="/",
     )
@@ -166,11 +170,13 @@ def logout(
             auth_service.remove_refresh_token(user["_id"])
 
     response = JSONResponse(content={"message": "Logout successful"})
+    cookie_secure = os.getenv("COOKIE_SECURE", "true").lower() != "false"
+    cookie_samesite = "none" if cookie_secure else "lax"
     response.delete_cookie(
         key="refresh_token",
         path="/",
         httponly=True,
-        secure=_COOKIE_SECURE,
-        samesite=_COOKIE_SAMESITE,
+        secure=cookie_secure,
+        samesite=cookie_samesite,
     )
     return response
