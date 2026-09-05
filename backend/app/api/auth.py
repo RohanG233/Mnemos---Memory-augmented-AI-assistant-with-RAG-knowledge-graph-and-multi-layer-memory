@@ -109,9 +109,10 @@ def google_callback(code: str, state: str):
         )
 
     # Redirect to the frontend chat page
-    redirect_url = f"{FRONTEND_URL}/chat"
-    # Pass the access token as a query parameter so the SPA can pick it up
-    redirect_url += f"?access_token={result['access_token']}"
+    # Pass the access token as a URL hash fragment (#access_token=...)
+    # Hash fragments are never sent to the server and are never
+    # stripped by CDN rewrite rules — safer than query parameters.
+    redirect_url = f"{FRONTEND_URL}/chat#access_token={result['access_token']}"
 
     response = RedirectResponse(url=redirect_url, status_code=302)
     _set_refresh_cookie(response, result["refresh_token"])

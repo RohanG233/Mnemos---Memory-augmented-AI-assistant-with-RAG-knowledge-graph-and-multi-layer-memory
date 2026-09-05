@@ -18,6 +18,11 @@ import {
 import { setRefreshHandler } from "../services/api";
 
 
+// sessionStorage key — survives page refresh but not tab close.
+// Used as a fallback when the HttpOnly cookie is blocked cross-origin.
+const SESSION_TOKEN_KEY = "mnemos_access_token";
+
+
 interface AuthContextType {
   accessToken: string | null;
   loading: boolean;
@@ -33,41 +38,56 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-
-  // Prevent the refresh call from running if we already have
-  // a token from the URL (OAuth callback) — avoids a race where
-  // restoreAuth clobbers the just-extracted token with a 401.
   const hasRestoredRef = useRef(false);
 
 
+  // --------------------------------
+  // Persist token to sessionStorage
+  // so page refreshes don't lose login
+  // --------------------------------
+
+  function storeToken(token: string | null) {
+    if (token) {
+      sessionStorage.setItem(SESSION_TOKEN_KEY, token);
+    } else {
+      sessionStorage.removeItem(SESSION_TOKEN_KEY);
+    }
+    setAccessToken(token);
+  }
+
+
+  // --------------------------------
+  // Restore authentication on mount
+  // --------------------------------
+
   useEffect(() => {
-    // Guard: only run once even in React StrictMode double-invoke
     if (hasRestoredRef.current) return;
     hasRestoredRef.current = true;
 
     async function restoreAuth() {
 
-      // 1. Check for access_token in the URL (OAuth callback redirect)
+      // 1. Check for token in URL hash/query (just returned from OAuth)
       const urlToken = extractAccessTokenFromUrl();
-
       if (urlToken) {
-        // We have a fresh token from the just-completed OAuth flow.
-        // Store it and stop — do NOT call /auth/refresh here because:
-        //   a) we don't need to (we have the token already)
-        //   b) the HttpOnly cookie may not be readable yet in the
-        //      browser due to cross-site redirect cookie timing
-        setAccessToken(urlToken);
+        storeToken(urlToken);
         setLoading(false);
         return;
       }
 
-      // 2. No URL token — try to silently restore via the HttpOnly cookie
+      // 2. Check sessionStorage (page refresh within same session)
+      const sessionToken = sessionStorage.getItem(SESSION_TOKEN_KEY);
+      if (sessionToken) {
+        setAccessToken(sessionToken);
+        setLoading(false);
+        return;
+      }
+
+      // 3. Try HttpOnly cookie refresh (works when cookie is present)
       try {
         const token = await refreshAccessToken();
-        setAccessToken(token);
+        storeToken(token);
       } catch {
-        // Cookie missing, expired, or invalid — user must log in
-        setAccessToken(null);
+        storeToken(null);
       } finally {
         setLoading(false);
       }
@@ -93,10 +113,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function refresh(): Promise<string | null> {
     try {
       const token = await refreshAccessToken();
-      setAccessToken(token);
+      storeToken(token);
       return token;
     } catch {
-      setAccessToken(null);
+      storeToken(null);
       return null;
     }
   }
@@ -115,7 +135,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await logoutRequest();
     } finally {
-      setAccessToken(null);
+      storeToken(null);
     }
   }
 
@@ -138,10 +158,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export function useAuth() {
   const context = useContext(AuthContext);
-
   if (!context) {
     throw new Error("useAuth must be used inside AuthProvider");
   }
-
   return context;
 }

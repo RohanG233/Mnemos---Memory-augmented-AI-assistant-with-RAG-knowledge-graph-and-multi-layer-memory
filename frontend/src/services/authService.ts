@@ -104,18 +104,31 @@ export async function logout(): Promise<void> {
 
 // --------------------------------
 // Extract OAuth access_token from URL
-// (set by backend callback redirect)
+// Token is passed as a hash fragment: /chat#access_token=...
+// Hash fragments are never sent to the server and are never
+// stripped by CDN rewrite rules — more reliable than query params.
 // --------------------------------
 
 export function extractAccessTokenFromUrl(): string | null {
-  const params = new URLSearchParams(window.location.search);
-  const token = params.get("access_token");
-
-  if (token) {
-    // Remove from URL bar without triggering a page reload
-    const cleanUrl = window.location.pathname;
-    window.history.replaceState({}, "", cleanUrl);
+  // Check hash fragment first (#access_token=...)
+  const hash = window.location.hash;
+  if (hash && hash.includes("access_token=")) {
+    const params = new URLSearchParams(hash.slice(1)); // remove leading #
+    const token = params.get("access_token");
+    if (token) {
+      // Remove the hash from the URL bar without reloading
+      window.history.replaceState({}, "", window.location.pathname);
+      return token;
+    }
   }
 
-  return token;
+  // Fallback: check query parameter (?access_token=...) for backwards compat
+  const queryParams = new URLSearchParams(window.location.search);
+  const queryToken = queryParams.get("access_token");
+  if (queryToken) {
+    window.history.replaceState({}, "", window.location.pathname);
+    return queryToken;
+  }
+
+  return null;
 }
