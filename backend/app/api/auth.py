@@ -1,11 +1,13 @@
 import logging
 import os
 from datetime import datetime, timezone
+from typing import Optional
 
 from bson import ObjectId
 from bson.errors import InvalidId
 from fastapi import APIRouter, Cookie, Depends, HTTPException
 from fastapi.responses import JSONResponse, RedirectResponse
+from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_user
 from app.auth.security import create_access_token
@@ -27,15 +29,11 @@ auth_service = AuthService()
 
 # Use secure cookies in production (HTTPS).
 # Set COOKIE_SECURE=false only for local HTTP development.
-_COOKIE_SECURE = os.getenv("COOKIE_SECURE", "true").lower() != "false"
-_COOKIE_SAMESITE = "none" if _COOKIE_SECURE else "lax"
-
 _REFRESH_MAX_AGE = REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
 
 
 def _set_refresh_cookie(response, refresh_token: str) -> None:
-    """Attach the HttpOnly refresh-token cookie to a response."""
-    # Read at call time so env var changes take effect after redeploy
+    """Attach the HttpOnly refresh-token cookie to a response (best-effort fallback)."""
     cookie_secure = os.getenv("COOKIE_SECURE", "true").lower() != "false"
     cookie_samesite = "none" if cookie_secure else "lax"
 
@@ -48,6 +46,17 @@ def _set_refresh_cookie(response, refresh_token: str) -> None:
         max_age=_REFRESH_MAX_AGE,
         path="/",
     )
+
+
+# -----------------------------
+# Request body schemas
+# -----------------------------
+
+class RefreshRequest(BaseModel):
+    refresh_token: Optional[str] = None
+
+class LogoutRequest(BaseModel):
+    refresh_token: Optional[str] = None
 
 
 # -----------------------------
@@ -108,13 +117,18 @@ def google_callback(code: str, state: str):
             detail="Google authentication failed.",
         )
 
-    # Redirect to the frontend chat page
-    # Pass the access token as a URL hash fragment (#access_token=...)
+    # Redirect to the frontend chat page.
+    # Pass both access_token AND refresh_token as URL hash fragments.
     # Hash fragments are never sent to the server and are never
     # stripped by CDN rewrite rules — safer than query parameters.
-    redirect_url = f"{FRONTEND_URL}/chat#access_token={result['access_token']}"
+    redirect_url = (
+        f"{FRONTEND_URL}/chat"
+        f"#access_token={result['access_token']}"
+        f"&refresh_token={result['refresh_token']}"
+    )
 
     response = RedirectResponse(url=redirect_url, status_code=302)
+    # Still set cookie as a best-effort fallback for same-origin setups
     _set_refresh_cookie(response, result["refresh_token"])
     return response
 
@@ -125,12 +139,20 @@ def google_callback(code: str, state: str):
 
 @router.post("/refresh")
 def refresh_access_token(
+    body: RefreshRequest = None,
     refresh_token: str | None = Cookie(default=None),
 ):
-    if not refresh_token:
+    # Prefer the body token; fall back to cookie for backwards compat
+    token = None
+    if body and body.refresh_token:
+        token = body.refresh_token
+    elif refresh_token:
+        token = refresh_token
+
+    if not token:
         raise HTTPException(status_code=401, detail="Refresh token missing")
 
-    user = auth_service.get_user_by_refresh_token(refresh_token)
+    user = auth_service.get_user_by_refresh_token(token)
 
     if not user:
         raise HTTPException(status_code=401, detail="Invalid refresh token")
@@ -152,7 +174,11 @@ def refresh_access_token(
 
     new_refresh_token, _ = auth_service.rotate_refresh_token(user)
 
-    response = JSONResponse(content={"access_token": access_token})
+    response = JSONResponse(content={
+        "access_token": access_token,
+        "refresh_token": new_refresh_token,
+    })
+    # Still set cookie as a best-effort fallback
     _set_refresh_cookie(response, new_refresh_token)
     return response
 
@@ -163,10 +189,18 @@ def refresh_access_token(
 
 @router.post("/logout")
 def logout(
+    body: LogoutRequest = None,
     refresh_token: str | None = Cookie(default=None),
 ):
-    if refresh_token:
-        user = auth_service.get_user_by_refresh_token(refresh_token)
+    # Prefer body token; fall back to cookie
+    token = None
+    if body and body.refresh_token:
+        token = body.refresh_token
+    elif refresh_token:
+        token = refresh_token
+
+    if token:
+        user = auth_service.get_user_by_refresh_token(token)
         if user:
             auth_service.remove_refresh_token(user["_id"])
 

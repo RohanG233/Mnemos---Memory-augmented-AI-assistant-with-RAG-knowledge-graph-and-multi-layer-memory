@@ -12,7 +12,8 @@ import {
   loginWithGoogle,
   refreshAccessToken,
   logout as logoutRequest,
-  extractAccessTokenFromUrl,
+  extractTokensFromUrl,
+  saveRefreshToken,
 } from "../services/authService";
 
 import { setRefreshHandler } from "../services/api";
@@ -65,12 +66,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     async function restoreAuth() {
 
-      // 1. Fresh OAuth callback — token is in the URL hash fragment
-      //    (#access_token=...). Clear any stale session first.
-      const urlToken = extractAccessTokenFromUrl();
-      if (urlToken) {
+      // 1. Fresh OAuth callback — tokens are in the URL hash fragment
+      //    (#access_token=...&refresh_token=...). Clear any stale session first.
+      const urlTokens = extractTokensFromUrl();
+      if (urlTokens.accessToken) {
         saveSession(null); // clear stale token before storing new one
-        storeToken(urlToken);
+        storeToken(urlTokens.accessToken);
+        // Save the refresh token to sessionStorage
+        if (urlTokens.refreshToken) {
+          saveRefreshToken(urlTokens.refreshToken);
+        }
         setLoading(false);
         return;
       }
@@ -98,13 +103,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      // 3. Try HttpOnly cookie refresh (works when cookie is not blocked)
+      // 3. Try refresh (sends refresh_token from sessionStorage in body,
+      //    with HttpOnly cookie as fallback for same-origin setups)
       try {
-        const token = await refreshAccessToken();
-        storeToken(token);
+        const result = await refreshAccessToken();
+        storeToken(result.access_token);
+        // refreshAccessToken already saves the new refresh_token internally
       } catch {
-        // Cookie blocked or expired — user must log in again
+        // Refresh failed — user must log in again
         storeToken(null);
+        saveRefreshToken(null);
       } finally {
         setLoading(false);
       }
@@ -122,12 +130,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function refresh(): Promise<string | null> {
     try {
-      const token = await refreshAccessToken();
-      storeToken(token);
-      return token;
+      const result = await refreshAccessToken();
+      storeToken(result.access_token);
+      // refreshAccessToken already saves the new refresh_token internally
+      return result.access_token;
     } catch {
       // Refresh failed — clear stale session so user gets login prompt
       storeToken(null);
+      saveRefreshToken(null);
       return null;
     }
   }
@@ -143,6 +153,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await logoutRequest();
     } finally {
       storeToken(null);
+      saveRefreshToken(null);
     }
   }
 
