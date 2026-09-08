@@ -151,7 +151,7 @@ export interface ExtractedTokens {
   refreshToken: string | null;
 }
 
-export function extractTokensFromUrl(): ExtractedTokens {
+export function extractTokensFromUrl(removeFromUrl: boolean = true): ExtractedTokens {
   const result: ExtractedTokens = { accessToken: null, refreshToken: null };
 
   // Check hash fragment first (#access_token=...&refresh_token=...)
@@ -168,8 +168,10 @@ export function extractTokensFromUrl(): ExtractedTokens {
       result.refreshToken = refreshToken;
     }
 
-    // Remove the hash from the URL bar without reloading
-    window.history.replaceState({}, "", window.location.pathname);
+    // Remove the hash from the URL bar without reloading (only if requested)
+    if (removeFromUrl) {
+      window.history.replaceState({}, "", window.location.pathname);
+    }
     return result;
   }
 
@@ -182,7 +184,10 @@ export function extractTokensFromUrl(): ExtractedTokens {
     if (queryRefreshToken) {
       result.refreshToken = queryRefreshToken;
     }
-    window.history.replaceState({}, "", window.location.pathname);
+    // Remove query params from the URL bar without reloading (only if requested)
+    if (removeFromUrl) {
+      window.history.replaceState({}, "", window.location.pathname);
+    }
   }
 
   return result;
