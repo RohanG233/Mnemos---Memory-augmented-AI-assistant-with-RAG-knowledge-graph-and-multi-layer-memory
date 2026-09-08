@@ -142,9 +142,8 @@ export async function logout(): Promise<void> {
 
 // --------------------------------
 // Extract OAuth tokens from URL
-// Tokens are passed as hash fragments: /chat#access_token=...&refresh_token=...
-// Hash fragments are never sent to the server and are never
-// stripped by CDN rewrite rules — more reliable than query params.
+// Tokens are passed as query parameters: /chat?access_token=...&refresh_token=...
+// or as hash fragments: /chat#access_token=...&refresh_token=...
 // --------------------------------
 
 export interface ExtractedTokens {
@@ -174,11 +173,15 @@ export function extractTokensFromUrl(): ExtractedTokens {
     return result;
   }
 
-  // Fallback: check query parameter (?access_token=...) for backwards compat
+  // Fallback: check query parameter (?access_token=...&refresh_token=...) for backwards compat
   const queryParams = new URLSearchParams(window.location.search);
   const queryToken = queryParams.get("access_token");
+  const queryRefreshToken = queryParams.get("refresh_token");
   if (queryToken) {
     result.accessToken = queryToken;
+    if (queryRefreshToken) {
+      result.refreshToken = queryRefreshToken;
+    }
     window.history.replaceState({}, "", window.location.pathname);
   }
 
