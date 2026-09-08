@@ -122,12 +122,10 @@ def google_callback(code: str, state: str):
         )
 
     # Redirect to the frontend chat page.
-    # Pass both access_token AND refresh_token as URL hash fragments.
-    # Hash fragments are never sent to the server and are never
-    # stripped by CDN rewrite rules — safer than query parameters.
+    # Using query parameters since hash fragments are being stripped by Render/Cloudflare
     redirect_url = (
         f"{FRONTEND_URL}/chat"
-        f"#access_token={result['access_token']}"
+        f"?access_token={result['access_token']}"
         f"&refresh_token={result['refresh_token']}"
     )
 
