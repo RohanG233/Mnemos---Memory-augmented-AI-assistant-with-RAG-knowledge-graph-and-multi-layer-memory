@@ -118,14 +118,16 @@ def google_callback(code: str, state: str):
         )
 
     # Redirect to the frontend chat page.
-    # Pass both access_token AND refresh_token as URL hash fragments.
-    # Hash fragments are never sent to the server and are never
-    # stripped by CDN rewrite rules — safer than query parameters.
+    # Temporarily using query parameters instead of hash fragments
+    # to debug if hash fragments are being stripped.
     redirect_url = (
         f"{FRONTEND_URL}/chat"
-        f"#access_token={result['access_token']}"
+        f"?access_token={result['access_token']}"
         f"&refresh_token={result['refresh_token']}"
     )
+
+    logger.info(f"OAuth redirect URL: {redirect_url}")
+    logger.info(f"FRONTEND_URL env var: {FRONTEND_URL}")
 
     response = RedirectResponse(url=redirect_url, status_code=302)
     # Still set cookie as a best-effort fallback for same-origin setups
