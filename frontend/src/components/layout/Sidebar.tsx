@@ -1,4 +1,4 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 
 const NAV_ITEMS = [
@@ -10,10 +10,15 @@ const NAV_ITEMS = [
 
 function Sidebar() {
   const { logout } = useAuth();
+  const navigate = useNavigate();
 
   async function handleLogout() {
-    try { await logout(); }
-    catch (err) { console.error("Logout failed:", err); }
+    try {
+      await logout();
+      navigate("/");
+    } catch (err) {
+      console.error("Logout failed:", err);
+    }
   }
 
   return (

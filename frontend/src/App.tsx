@@ -6,6 +6,7 @@ import ProtectedRoute from "./components/auth/ProtectedRoute";
 
 import Layout from "./components/layout/Layout";
 
+import Home from "./pages/Home";
 import Chat from "./pages/Chat";
 import Upload from "./pages/Upload";
 import Memories from "./pages/Memories";
@@ -18,8 +19,10 @@ function App() {
       <BrowserRouter>
         <Routes>
           {/* -------------------------
-              Login Route
+              Public intro + login
           -------------------------- */}
+
+          <Route path="/" element={<Home />} />
 
           <Route path="/login" element={<Login />} />
 
@@ -28,15 +31,12 @@ function App() {
           -------------------------- */}
 
           <Route
-            path="/"
             element={
               <ProtectedRoute>
                 <Layout />
               </ProtectedRoute>
             }
           >
-            <Route index element={<Navigate to="/chat" replace />} />
-
             <Route path="chat" element={<Chat />} />
 
             <Route path="documents" element={<Upload />} />

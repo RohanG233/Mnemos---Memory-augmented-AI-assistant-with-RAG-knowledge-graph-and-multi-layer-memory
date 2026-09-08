@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 function Login() {
@@ -17,6 +18,24 @@ function Login() {
   return (
     <div className="login-page">
       <div className="login-card">
+
+        {/* Back button */}
+        <Link
+          to="/"
+          className="login-back-button"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "8px",
+            marginBottom: "16px",
+            fontSize: "14px",
+            color: "var(--text-muted)",
+            textDecoration: "none",
+            cursor: "pointer",
+          }}
+        >
+          ← Back
+        </Link>
 
         {/* Logo mark */}
         <div style={{
