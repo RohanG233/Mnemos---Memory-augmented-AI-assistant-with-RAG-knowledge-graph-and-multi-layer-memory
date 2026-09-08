@@ -108,8 +108,12 @@ def google_login():
 
 @router.get("/google/callback")
 def google_callback(code: str, state: str):
+    logger.info(f"OAuth callback received: code={code[:10]}..., state={state}")
+    logger.info(f"FRONTEND_URL: {FRONTEND_URL}")
+
     try:
         result = auth_service.handle_google_callback(code=code, state=state)
+        logger.info(f"OAuth callback successful, got tokens")
     except Exception:
         logger.exception("Google OAuth callback failed")
         raise HTTPException(
