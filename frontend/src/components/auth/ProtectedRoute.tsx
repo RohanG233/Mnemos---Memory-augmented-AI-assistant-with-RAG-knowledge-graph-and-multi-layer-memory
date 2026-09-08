@@ -24,7 +24,7 @@ function ProtectedRoute({ children }: ProtectedRouteProps) {
   // -----------------------------
 
   if (!accessToken) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/login" replace />;
   }
 
   // -----------------------------
