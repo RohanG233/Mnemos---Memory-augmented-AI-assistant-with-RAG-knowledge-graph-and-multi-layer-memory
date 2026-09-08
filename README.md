@@ -687,15 +687,3 @@ Log in with Google, create a conversation, send a message.
 6. **Single worker** — `--workers 1` is set because the in-process BM25 index and short-term memory are not shared across processes. For horizontal scaling, these would need to be externalised.
 
 ---
-
-## 13. Security Notes
-
-- Never commit `.env` files — they are in `.gitignore`
-- Rotate the `JWT_SECRET_KEY` if it was ever exposed
-- Regenerate the Google OAuth client secret if it was ever exposed
-- Change the MongoDB password if it was ever exposed
-- Refresh tokens are stored as HttpOnly, Secure, SameSite=None cookies — not accessible to JavaScript
-- All resource queries filter by `user_id` — user data isolation is enforced at the database level
-- Uploaded filenames are sanitised against path traversal attacks
-- File uploads are limited to 10 MB and `.txt` only
-- API errors do not expose Python tracebacks to clients
