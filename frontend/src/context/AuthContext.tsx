@@ -6,8 +6,6 @@ import {
   useState,
 } from "react";
 
-import { useNavigate } from "react-router-dom";
-
 import type { ReactNode } from "react";
 
 import {
@@ -54,7 +52,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const hasRestoredRef = useRef(false);
-  const navigate = useNavigate();
 
 
   function storeToken(token: string | null) {
@@ -81,7 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         setLoading(false);
         // Navigate to chat page after successful token extraction
-        navigate('/chat');
+        window.location.href = '/chat';
         return;
       }
 
