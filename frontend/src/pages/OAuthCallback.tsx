@@ -2,19 +2,17 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { extractTokensFromUrl, saveRefreshToken } from "../services/authService";
-import { useAuth } from "../context/AuthContext";
 
 function OAuthCallback() {
   const navigate = useNavigate();
-  const { storeToken } = useAuth();
 
   useEffect(() => {
     // Extract tokens from URL (both hash fragments and query parameters)
     const urlTokens = extractTokensFromUrl();
 
     if (urlTokens.accessToken) {
-      // Store access token
-      storeToken(urlTokens.accessToken);
+      // Store access token in sessionStorage
+      sessionStorage.setItem("mnemos_access_token", urlTokens.accessToken);
 
       // Store refresh token if present
       if (urlTokens.refreshToken) {
@@ -27,7 +25,7 @@ function OAuthCallback() {
       // No tokens found - redirect to login with error
       navigate("/login");
     }
-  }, [navigate, storeToken]);
+  }, [navigate]);
 
   return (
     <div style={{
