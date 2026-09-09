@@ -138,12 +138,6 @@ GOOGLE_REDIRECT_URI = os.getenv(
     "http://localhost:8000/auth/google/callback"
 )
 
-# OAuth callback page on frontend (for cross-domain deployments)
-FRONTEND_OAUTH_CALLBACK = os.getenv(
-    "FRONTEND_OAUTH_CALLBACK",
-    "http://localhost:5173/oauth/callback"
-)
-
 # Where the browser is redirected after OAuth completes
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
 

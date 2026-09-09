@@ -13,7 +13,6 @@ from app.auth.dependencies import get_current_user
 from app.auth.security import create_access_token
 from app.core.config import (
     FRONTEND_URL,
-    FRONTEND_OAUTH_CALLBACK,
     REFRESH_TOKEN_EXPIRE_DAYS,
 )
 from app.core.database import users_collection
@@ -118,12 +117,13 @@ def google_callback(code: str, state: str):
             detail="Google authentication failed.",
         )
 
-    # Redirect to the frontend OAuth callback page.
-    # This dedicated page handles token extraction and internal redirect to chat.
-    # Using query parameters for reliability across different deployment environments.
+    # Redirect to the frontend chat page.
+    # Pass both access_token AND refresh_token as URL hash fragments.
+    # Hash fragments are never sent to the server and are never
+    # stripped by CDN rewrite rules — safer than query parameters.
     redirect_url = (
-        f"{FRONTEND_OAUTH_CALLBACK}"
-        f"?access_token={result['access_token']}"
+        f"{FRONTEND_URL}/chat"
+        f"#access_token={result['access_token']}"
         f"&refresh_token={result['refresh_token']}"
     )
 
