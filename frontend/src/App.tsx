@@ -12,6 +12,7 @@ import Upload from "./pages/Upload";
 import Memories from "./pages/Memories";
 import Graph from "./pages/Graph";
 import Login from "./pages/Login";
+import OAuthCallback from "./pages/OAuthCallback";
 
 function App() {
   return (
@@ -25,6 +26,8 @@ function App() {
           <Route path="/" element={<Home />} />
 
           <Route path="/login" element={<Login />} />
+
+          <Route path="/oauth/callback" element={<OAuthCallback />} />
 
           {/* -------------------------
               Protected Application

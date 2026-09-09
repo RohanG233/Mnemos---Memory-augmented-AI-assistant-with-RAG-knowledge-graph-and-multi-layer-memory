@@ -68,6 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // 1. Fresh OAuth callback — tokens are in the URL hash fragment
       //    (#access_token=...&refresh_token=...). Clear any stale session first.
+      // Note: OAuth callback is now handled by dedicated OAuthCallback page
       const urlTokens = extractTokensFromUrl();
       if (urlTokens.accessToken) {
         saveSession(null); // clear stale token before storing new one
@@ -77,8 +78,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           saveRefreshToken(urlTokens.refreshToken);
         }
         setLoading(false);
-        // Navigate to chat page after successful token extraction
-        window.location.href = '/chat';
         return;
       }
 
