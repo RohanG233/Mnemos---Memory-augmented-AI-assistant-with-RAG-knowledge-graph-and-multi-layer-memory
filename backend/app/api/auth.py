@@ -108,12 +108,8 @@ def google_login():
 
 @router.get("/google/callback")
 def google_callback(code: str, state: str):
-    logger.info(f"OAuth callback received: code={code[:10]}..., state={state}")
-    logger.info(f"FRONTEND_URL: {FRONTEND_URL}")
-
     try:
         result = auth_service.handle_google_callback(code=code, state=state)
-        logger.info(f"OAuth callback successful, got tokens")
     except Exception:
         logger.exception("Google OAuth callback failed")
         raise HTTPException(
@@ -122,15 +118,14 @@ def google_callback(code: str, state: str):
         )
 
     # Redirect to the frontend chat page.
-    # Using query parameters since hash fragments are being stripped by Render/Cloudflare
+    # Pass both access_token AND refresh_token as URL hash fragments.
+    # Hash fragments are never sent to the server and are never
+    # stripped by CDN rewrite rules — safer than query parameters.
     redirect_url = (
         f"{FRONTEND_URL}/chat"
-        f"?access_token={result['access_token']}"
+        f"#access_token={result['access_token']}"
         f"&refresh_token={result['refresh_token']}"
     )
-
-    logger.info(f"OAuth redirect URL: {redirect_url}")
-    logger.info(f"FRONTEND_URL env var: {FRONTEND_URL}")
 
     response = RedirectResponse(url=redirect_url, status_code=302)
     # Still set cookie as a best-effort fallback for same-origin setups
