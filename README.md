@@ -7,8 +7,8 @@
 > a knowledge graph, and a dark-themed React UI — powered by a local Ollama LLM,
 > ChromaDB vector storage, and MongoDB.
 
-![Mnemos Chat Interface](screenshots/chat-interface.png)
-*Mnemos chat interface with RAG-powered responses*
+![Mnemos Chat Interface](screenshots/main-page.png)
+_Mnemos Main Screen_
 
 ## 🎬 Demo Video
 
@@ -240,7 +240,7 @@ mnemos/
 - Every database query includes `user_id` — users cannot access each other's data
 
 ![Login Flow](screenshots/oauth-login.png)
-*Google OAuth login flow*
+_Google OAuth login flow_
 
 ### Chat & Conversations
 
@@ -251,7 +251,7 @@ mnemos/
 - All conversation history survives restarts via MongoDB
 
 ![Chat Interface](screenshots/chat-interface.png)
-*Conversation management with RAG responses*
+_Conversation management with RAG responses_
 
 ### RAG Pipeline
 
@@ -269,21 +269,21 @@ User query
 ```
 
 ![RAG Pipeline](screenshots/rag-flow.png)
-*RAG pipeline architecture*
+_RAG pipeline architecture_
 
 ### Memory System
 
-| Type | Trigger | Storage |
-|---|---|---|
-| Semantic | Personal facts / preferences | ChromaDB `memory` collection |
-| Episodic | Significant decisions / milestones | ChromaDB `episodes` collection |
-| Procedural | Behavioural instructions | ChromaDB `procedures` collection |
-| Short-term | Last N message pairs | In-process `ConversationMemory` |
+| Type       | Trigger                            | Storage                          |
+| ---------- | ---------------------------------- | -------------------------------- |
+| Semantic   | Personal facts / preferences       | ChromaDB `memory` collection     |
+| Episodic   | Significant decisions / milestones | ChromaDB `episodes` collection   |
+| Procedural | Behavioural instructions           | ChromaDB `procedures` collection |
+| Short-term | Last N message pairs               | In-process `ConversationMemory`  |
 
 Memory decay: an importance × recency × usage score is computed on retrieval. Memories below the forget threshold are deleted.
 
 ![Memory Viewer](screenshots/memory-interface.png)
-*Semantic, episodic, and procedural memory tabs*
+_Semantic, episodic, and procedural memory tabs_
 
 ### Knowledge Graph
 
@@ -293,7 +293,7 @@ Memory decay: an importance × recency × usage score is computed on retrieval. 
 - Graph is written atomically (tmp file → rename) to prevent corruption
 
 ![Knowledge Graph](screenshots/graph-visualization.png)
-*Interactive knowledge graph with entity relationships*
+_Interactive knowledge graph with entity relationships_
 
 ### Document Ingestion
 
@@ -305,29 +305,29 @@ Memory decay: an importance × recency × usage score is computed on retrieval. 
 6. Document ID returned — use it to delete the document later
 
 ![Document Upload](screenshots/document-upload.png)
-*Document upload with chunking and indexing status*
+_Document upload with chunking and indexing status_
 
 ---
 
 ## 5. Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Frontend framework | React 19 + TypeScript + Vite |
-| Routing | React Router v7 |
-| Graph visualisation | @xyflow/react (ReactFlow) |
-| Markdown rendering | react-markdown |
-| Backend framework | FastAPI (Python 3.11) |
-| ASGI server | Uvicorn |
-| LLM inference | Ollama (local HTTP API) |
-| Vector database | ChromaDB (persistent) |
-| Embedding model | sentence-transformers all-MiniLM-L6-v2 |
-| Full-text search | bm25s + PyStemmer |
-| Knowledge graph | NetworkX + JSON files |
-| Primary database | MongoDB Atlas |
-| Authentication | Google OAuth 2.0 + JWT |
-| Text splitting | LangChain text splitters |
-| Deployment | Render (backend + static frontend) |
+| Layer               | Technology                             |
+| ------------------- | -------------------------------------- |
+| Frontend framework  | React 19 + TypeScript + Vite           |
+| Routing             | React Router v7                        |
+| Graph visualisation | @xyflow/react (ReactFlow)              |
+| Markdown rendering  | react-markdown                         |
+| Backend framework   | FastAPI (Python 3.11)                  |
+| ASGI server         | Uvicorn                                |
+| LLM inference       | Ollama (local HTTP API)                |
+| Vector database     | ChromaDB (persistent)                  |
+| Embedding model     | sentence-transformers all-MiniLM-L6-v2 |
+| Full-text search    | bm25s + PyStemmer                      |
+| Knowledge graph     | NetworkX + JSON files                  |
+| Primary database    | MongoDB Atlas                          |
+| Authentication      | Google OAuth 2.0 + JWT                 |
+| Text splitting      | LangChain text splitters               |
+| Deployment          | Render (backend + static frontend)     |
 
 ---
 
@@ -347,13 +347,13 @@ Memory decay: an importance × recency × usage score is computed on retrieval. 
 
 ### Prerequisites
 
-| Tool | Version | Purpose |
-|---|---|---|
-| Python | 3.11.x | Backend runtime |
-| Node.js | 20+ | Frontend build |
-| Ollama | any | Local LLM inference |
-| MongoDB Atlas | free tier | Database |
-| Google Cloud account | — | OAuth credentials |
+| Tool                 | Version   | Purpose             |
+| -------------------- | --------- | ------------------- |
+| Python               | 3.11.x    | Backend runtime     |
+| Node.js              | 20+       | Frontend build      |
+| Ollama               | any       | Local LLM inference |
+| MongoDB Atlas        | free tier | Database            |
+| Google Cloud account | —         | OAuth credentials   |
 
 ### Backend Setup
 
@@ -406,11 +406,13 @@ cp .env.example .env
 Open three terminals:
 
 **Terminal 1 — Ollama**
+
 ```bash
 ollama serve
 ```
 
 **Terminal 2 — Backend**
+
 ```bash
 cd backend
 .venv\Scripts\activate   # or source .venv/bin/activate
@@ -418,6 +420,7 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 **Terminal 3 — Frontend**
+
 ```bash
 cd frontend
 npm run dev
@@ -431,31 +434,31 @@ Open `http://localhost:5173` in your browser.
 
 ### Backend Variables
 
-| Variable | Required | Default | Description |
-|---|---|---|---|
-| `MONGODB_URL` | Yes | `mongodb://localhost:27017` | Full MongoDB Atlas connection string |
-| `MONGODB_DATABASE` | No | `mnemos` | Database name |
-| `JWT_SECRET_KEY` | **Yes** | — | Strong random secret. Generate: `python -c "import secrets; print(secrets.token_hex(32))"` |
-| `JWT_ALGORITHM` | No | `HS256` | JWT signing algorithm |
-| `ACCESS_TOKEN_EXPIRE_MINUTES` | No | `15` | Access token lifetime |
-| `REFRESH_TOKEN_EXPIRE_DAYS` | No | `7` | Refresh token lifetime |
-| `GOOGLE_CLIENT_ID` | **Yes** | — | From Google Cloud Console |
-| `GOOGLE_CLIENT_SECRET` | **Yes** | — | From Google Cloud Console |
-| `GOOGLE_REDIRECT_URI` | No | `http://localhost:8000/auth/google/callback` | Must exactly match Google Console entry |
-| `FRONTEND_URL` | No | `http://localhost:5173` | Where browser lands after OAuth |
-| `ALLOWED_ORIGINS` | No | `http://localhost:5173,http://localhost:3000` | Comma-separated CORS allowed origins |
-| `OLLAMA_URL` | No | `http://localhost:11434/api/chat` | Ollama chat endpoint |
-| `LLM_MODEL` | No | `hf.co/bartowski/Llama-3.2-1B-Instruct-GGUF:latest` | Ollama model name |
-| `LLM_TIMEOUT` | No | `120` | LLM request timeout in seconds |
-| `CHROMA_PATH` | No | `./data/chroma_db` | ChromaDB storage directory |
-| `GRAPH_DIRECTORY` | No | `./data/graphs` | Graph JSON storage directory |
-| `COOKIE_SECURE` | No | `true` | Set `false` only for local HTTP dev |
+| Variable                      | Required | Default                                             | Description                                                                                |
+| ----------------------------- | -------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `MONGODB_URL`                 | Yes      | `mongodb://localhost:27017`                         | Full MongoDB Atlas connection string                                                       |
+| `MONGODB_DATABASE`            | No       | `mnemos`                                            | Database name                                                                              |
+| `JWT_SECRET_KEY`              | **Yes**  | —                                                   | Strong random secret. Generate: `python -c "import secrets; print(secrets.token_hex(32))"` |
+| `JWT_ALGORITHM`               | No       | `HS256`                                             | JWT signing algorithm                                                                      |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | No       | `15`                                                | Access token lifetime                                                                      |
+| `REFRESH_TOKEN_EXPIRE_DAYS`   | No       | `7`                                                 | Refresh token lifetime                                                                     |
+| `GOOGLE_CLIENT_ID`            | **Yes**  | —                                                   | From Google Cloud Console                                                                  |
+| `GOOGLE_CLIENT_SECRET`        | **Yes**  | —                                                   | From Google Cloud Console                                                                  |
+| `GOOGLE_REDIRECT_URI`         | No       | `http://localhost:8000/auth/google/callback`        | Must exactly match Google Console entry                                                    |
+| `FRONTEND_URL`                | No       | `http://localhost:5173`                             | Where browser lands after OAuth                                                            |
+| `ALLOWED_ORIGINS`             | No       | `http://localhost:5173,http://localhost:3000`       | Comma-separated CORS allowed origins                                                       |
+| `OLLAMA_URL`                  | No       | `http://localhost:11434/api/chat`                   | Ollama chat endpoint                                                                       |
+| `LLM_MODEL`                   | No       | `hf.co/bartowski/Llama-3.2-1B-Instruct-GGUF:latest` | Ollama model name                                                                          |
+| `LLM_TIMEOUT`                 | No       | `120`                                               | LLM request timeout in seconds                                                             |
+| `CHROMA_PATH`                 | No       | `./data/chroma_db`                                  | ChromaDB storage directory                                                                 |
+| `GRAPH_DIRECTORY`             | No       | `./data/graphs`                                     | Graph JSON storage directory                                                               |
+| `COOKIE_SECURE`               | No       | `true`                                              | Set `false` only for local HTTP dev                                                        |
 
 ### Frontend Variables
 
-| Variable | Required | Default | Description |
-|---|---|---|---|
-| `VITE_API_URL` | No | `http://localhost:8000` | Backend API base URL |
+| Variable       | Required | Default                 | Description          |
+| -------------- | -------- | ----------------------- | -------------------- |
+| `VITE_API_URL` | No       | `http://localhost:8000` | Backend API base URL |
 
 ---
 
@@ -466,6 +469,7 @@ Open `http://localhost:5173` in your browser.
 Before doing anything on Render, have these ready:
 
 **MongoDB Atlas**
+
 1. Log in at [mongodb.com/atlas](https://cloud.mongodb.com)
 2. Create a free cluster if you don't have one
 3. Database Access → Add Database User → copy username + password
@@ -474,12 +478,15 @@ Before doing anything on Render, have these ready:
 6. Replace `<password>` in the string with your actual password
 
 **JWT secret**
+
 ```bash
 python -c "import secrets; print(secrets.token_hex(32))"
 ```
+
 Copy the output. You will paste it into Render.
 
 **Google OAuth**
+
 1. Go to [console.cloud.google.com](https://console.cloud.google.com)
 2. Select or create a project
 3. APIs & Services → OAuth consent screen → configure (External, test users if needed)
@@ -521,15 +528,15 @@ Make sure `.env` files are NOT committed (the `.gitignore` covers this).
 
 In the Render dashboard → `mnemos-backend` → Environment:
 
-| Key | Value |
-|---|---|
-| `MONGODB_URL` | Your Atlas connection string |
-| `JWT_SECRET_KEY` | The hex secret you generated |
-| `GOOGLE_CLIENT_ID` | Your Google Client ID |
-| `GOOGLE_CLIENT_SECRET` | Your Google Client Secret |
-| `GOOGLE_REDIRECT_URI` | `https://mnemos-backend.onrender.com/auth/google/callback` |
-| `FRONTEND_URL` | `https://mnemos-frontend.onrender.com` |
-| `ALLOWED_ORIGINS` | `https://mnemos-frontend.onrender.com` |
+| Key                    | Value                                                      |
+| ---------------------- | ---------------------------------------------------------- |
+| `MONGODB_URL`          | Your Atlas connection string                               |
+| `JWT_SECRET_KEY`       | The hex secret you generated                               |
+| `GOOGLE_CLIENT_ID`     | Your Google Client ID                                      |
+| `GOOGLE_CLIENT_SECRET` | Your Google Client Secret                                  |
+| `GOOGLE_REDIRECT_URI`  | `https://mnemos-backend.onrender.com/auth/google/callback` |
+| `FRONTEND_URL`         | `https://mnemos-frontend.onrender.com`                     |
+| `ALLOWED_ORIGINS`      | `https://mnemos-frontend.onrender.com`                     |
 
 Leave all other variables at their defaults from `render.yaml`.
 
@@ -539,8 +546,8 @@ Leave all other variables at their defaults from `render.yaml`.
 
 In the Render dashboard → `mnemos-frontend` → Environment:
 
-| Key | Value |
-|---|---|
+| Key            | Value                                 |
+| -------------- | ------------------------------------- |
 | `VITE_API_URL` | `https://mnemos-backend.onrender.com` |
 
 > **Important**: `VITE_API_URL` is baked into the JavaScript bundle at build time.
@@ -557,6 +564,7 @@ Render web services do not natively host Ollama. You have three options:
 Requires Render Starter plan ($7/mo) for enough RAM.
 
 1. Create `backend/start.sh`:
+
 ```bash
 #!/bin/bash
 set -e
@@ -592,6 +600,7 @@ exec uvicorn app.main:app --host 0.0.0.0 --port "${PORT:-8000}" --workers 1
 ```
 
 2. In Render dashboard → `mnemos-backend` → Settings → Start Command:
+
 ```
 bash start.sh
 ```
@@ -602,11 +611,13 @@ bash start.sh
 
 1. Rent a $5–10/mo VPS (DigitalOcean, Hetzner, Vultr)
 2. On the VPS:
+
 ```bash
 curl -fsSL https://ollama.com/install.sh | sh
 ollama serve &
 ollama pull hf.co/bartowski/Llama-3.2-1B-Instruct-GGUF:latest
 ```
+
 3. Open port 11434 only to Render's IP range (or use a VPN/tunnel)
 4. Set `OLLAMA_URL=http://<vps-ip>:11434/api/chat` in Render
 
@@ -636,6 +647,7 @@ Auth, documents, memories, and graph browsing all continue to work.
 ### Step 8 — Trigger first deploy
 
 In the Render dashboard:
+
 1. Go to `mnemos-backend` → Manual Deploy → Deploy latest commit
 2. Watch the logs — startup should show:
    ```
@@ -667,51 +679,51 @@ Log in with Google, create a conversation, send a message.
 
 ## 9. Ollama Architecture Options
 
-| Option | Cost | Reliability | Setup effort |
-|---|---|---|---|
-| Ollama inside Render Starter | $7/mo | Medium (cold start ~30s on first deploy) | Medium — needs `start.sh` |
-| Ollama on a separate $5 VPS | $5–10/mo | High | Low — just `ollama serve` |
-| No Ollama (degraded mode) | $0 | N/A — chat disabled | None |
-| Cloud GPU (future) | Varies | High | Requires API format change |
+| Option                       | Cost     | Reliability                              | Setup effort               |
+| ---------------------------- | -------- | ---------------------------------------- | -------------------------- |
+| Ollama inside Render Starter | $7/mo    | Medium (cold start ~30s on first deploy) | Medium — needs `start.sh`  |
+| Ollama on a separate $5 VPS  | $5–10/mo | High                                     | Low — just `ollama serve`  |
+| No Ollama (degraded mode)    | $0       | N/A — chat disabled                      | None                       |
+| Cloud GPU (future)           | Varies   | High                                     | Requires API format change |
 
 ---
 
 ## 10. Persistence on Render
 
-| Data | Storage | Survives restart? | Notes |
-|---|---|---|---|
-| Users, conversations, messages | MongoDB Atlas | ✅ Always | Cloud-hosted |
-| Document chunks (vector) | ChromaDB on Render disk | ✅ With paid disk | Wiped on free tier |
-| Knowledge graph (JSON) | Render disk | ✅ With paid disk | Wiped on free tier |
-| BM25 index | In-process memory | ❌ Rebuilt at startup | Rebuilt from ChromaDB |
-| Short-term conversation window | In-process memory | ❌ Lost on restart | MongoDB history still present |
+| Data                           | Storage                 | Survives restart?     | Notes                         |
+| ------------------------------ | ----------------------- | --------------------- | ----------------------------- |
+| Users, conversations, messages | MongoDB Atlas           | ✅ Always             | Cloud-hosted                  |
+| Document chunks (vector)       | ChromaDB on Render disk | ✅ With paid disk     | Wiped on free tier            |
+| Knowledge graph (JSON)         | Render disk             | ✅ With paid disk     | Wiped on free tier            |
+| BM25 index                     | In-process memory       | ❌ Rebuilt at startup | Rebuilt from ChromaDB         |
+| Short-term conversation window | In-process memory       | ❌ Lost on restart    | MongoDB history still present |
 
 ---
 
 ## 11. API Reference
 
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| `GET` | `/health` | None | Liveness probe |
-| `GET` | `/health/dependencies` | None | MongoDB + Ollama status |
-| `GET` | `/auth/google` | None | Start OAuth flow |
-| `GET` | `/auth/google/callback` | None | OAuth callback |
-| `POST` | `/auth/refresh` | Cookie | Refresh access token |
-| `POST` | `/auth/logout` | Cookie | Invalidate refresh token |
-| `GET` | `/auth/me` | Bearer | Current user info |
-| `POST` | `/chat/conversations` | Bearer | Create conversation |
-| `GET` | `/chat/conversations` | Bearer | List conversations |
-| `GET` | `/chat/conversations/{id}/messages` | Bearer | Get messages |
-| `PATCH` | `/chat/conversations/{id}` | Bearer | Rename conversation |
-| `DELETE` | `/chat/conversations/{id}` | Bearer | Delete conversation |
-| `POST` | `/chat` | Bearer | Send message, get RAG response |
-| `POST` | `/documents/upload` | Bearer | Upload `.txt` document |
-| `GET` | `/documents` | Bearer | List uploaded documents |
-| `DELETE` | `/documents/{id}` | Bearer | Delete document |
-| `GET` | `/memories` | Bearer | Get semantic memories |
-| `GET` | `/memories/episodes` | Bearer | Get episodic memories |
-| `GET` | `/memories/procedures` | Bearer | Get procedural memories |
-| `GET` | `/graph` | Bearer | Get knowledge graph nodes + edges |
+| Method   | Path                                | Auth   | Description                       |
+| -------- | ----------------------------------- | ------ | --------------------------------- |
+| `GET`    | `/health`                           | None   | Liveness probe                    |
+| `GET`    | `/health/dependencies`              | None   | MongoDB + Ollama status           |
+| `GET`    | `/auth/google`                      | None   | Start OAuth flow                  |
+| `GET`    | `/auth/google/callback`             | None   | OAuth callback                    |
+| `POST`   | `/auth/refresh`                     | Cookie | Refresh access token              |
+| `POST`   | `/auth/logout`                      | Cookie | Invalidate refresh token          |
+| `GET`    | `/auth/me`                          | Bearer | Current user info                 |
+| `POST`   | `/chat/conversations`               | Bearer | Create conversation               |
+| `GET`    | `/chat/conversations`               | Bearer | List conversations                |
+| `GET`    | `/chat/conversations/{id}/messages` | Bearer | Get messages                      |
+| `PATCH`  | `/chat/conversations/{id}`          | Bearer | Rename conversation               |
+| `DELETE` | `/chat/conversations/{id}`          | Bearer | Delete conversation               |
+| `POST`   | `/chat`                             | Bearer | Send message, get RAG response    |
+| `POST`   | `/documents/upload`                 | Bearer | Upload `.txt` document            |
+| `GET`    | `/documents`                        | Bearer | List uploaded documents           |
+| `DELETE` | `/documents/{id}`                   | Bearer | Delete document                   |
+| `GET`    | `/memories`                         | Bearer | Get semantic memories             |
+| `GET`    | `/memories/episodes`                | Bearer | Get episodic memories             |
+| `GET`    | `/memories/procedures`              | Bearer | Get procedural memories           |
+| `GET`    | `/graph`                            | Bearer | Get knowledge graph nodes + edges |
 
 ---
 
