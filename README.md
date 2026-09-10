@@ -765,9 +765,9 @@ Log in with Google, create a conversation, send a message.
 
 ## Connect
 
-- **GitHub**: [Your GitHub Profile](https://github.com/yourusername)
-- **LinkedIn**: [Your LinkedIn Profile](https://linkedin.com/in/yourprofile)
-- **Email**: your.email@example.com
+- **GitHub**: [Your GitHub Profile](https://github.com/RohanG233)
+- **LinkedIn**: [Your LinkedIn Profile](www.linkedin.com/in/rohan-g-90731a246)
+- **Email**: rohang13102002@gmail.com
 - **Demo Video**: [Watch on YouTube](https://youtube.com/your-demo-link)
 
 ---
