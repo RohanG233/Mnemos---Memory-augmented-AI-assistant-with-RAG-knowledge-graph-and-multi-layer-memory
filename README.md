@@ -1,8 +1,18 @@
 # Mnemos — Memory-Augmented AI
 
+![Project Status](https://img.shields.io/badge/status-active-success)
+![License](https://img.shields.io/badge/license-MIT-blue)
+
 > A full-stack AI assistant with persistent memory, Retrieval-Augmented Generation (RAG),
 > a knowledge graph, and a dark-themed React UI — powered by a local Ollama LLM,
 > ChromaDB vector storage, and MongoDB.
+
+![Mnemos Chat Interface](screenshots/chat-interface.png)
+*Mnemos chat interface with RAG-powered responses*
+
+## 🎬 Demo Video
+
+[Watch the 3-minute demo walkthrough](https://youtube.com/your-demo-link) - See the full authentication flow, RAG responses, document upload, and knowledge graph visualization.
 
 ---
 
@@ -19,16 +29,17 @@
    - [Knowledge Graph](#knowledge-graph)
    - [Document Ingestion](#document-ingestion)
 5. [Tech Stack](#5-tech-stack)
-6. [Local Development](#6-local-development)
+6. [Technical Achievements](#technical-achievements)
+7. [Local Development](#7-local-development)
    - [Prerequisites](#prerequisites)
    - [Backend Setup](#backend-setup)
    - [Ollama Setup](#ollama-setup)
    - [Frontend Setup](#frontend-setup)
    - [Running Everything](#running-everything)
-7. [Environment Variables](#7-environment-variables)
+8. [Environment Variables](#8-environment-variables)
    - [Backend Variables](#backend-variables)
    - [Frontend Variables](#frontend-variables)
-8. [Render Deployment](#8-render-deployment)
+9. [Render Deployment](#9-render-deployment)
    - [Step 1 — Prepare credentials](#step-1--prepare-credentials)
    - [Step 2 — Push to GitHub](#step-2--push-to-github)
    - [Step 3 — Create Render services](#step-3--create-render-services)
@@ -38,11 +49,13 @@
    - [Step 7 — Configure Google OAuth for production](#step-7--configure-google-oauth-for-production)
    - [Step 8 — Trigger first deploy](#step-8--trigger-first-deploy)
    - [Step 9 — Verify deployment](#step-9--verify-deployment)
-9. [Ollama Architecture Options](#9-ollama-architecture-options)
-10. [Persistence on Render](#10-persistence-on-render)
-11. [API Reference](#11-api-reference)
-12. [Known Limitations](#12-known-limitations)
-13. [Security Notes](#13-security-notes)
+10. [Ollama Architecture Options](#10-ollama-architecture-options)
+11. [Persistence on Render](#11-persistence-on-render)
+12. [API Reference](#12-api-reference)
+13. [Known Limitations](#13-known-limitations)
+14. [Deployment Status](#14-deployment-status)
+15. [Future Improvements](#15-future-improvements)
+16. [Connect](#16-connect)
 
 ---
 
@@ -226,6 +239,9 @@ mnemos/
 - All protected endpoints require a valid `Authorization: Bearer <token>` header
 - Every database query includes `user_id` — users cannot access each other's data
 
+![Login Flow](screenshots/oauth-login.png)
+*Google OAuth login flow*
+
 ### Chat & Conversations
 
 - Conversations are created server-side (`POST /chat/conversations`)
@@ -233,6 +249,9 @@ mnemos/
 - Messages are persisted to MongoDB after each exchange
 - Short-term rolling context window (6 message pairs) kept in-process
 - All conversation history survives restarts via MongoDB
+
+![Chat Interface](screenshots/chat-interface.png)
+*Conversation management with RAG responses*
 
 ### RAG Pipeline
 
@@ -249,6 +268,9 @@ User query
   → [background] update graph + memories
 ```
 
+![RAG Pipeline](screenshots/rag-flow.png)
+*RAG pipeline architecture*
+
 ### Memory System
 
 | Type | Trigger | Storage |
@@ -260,12 +282,18 @@ User query
 
 Memory decay: an importance × recency × usage score is computed on retrieval. Memories below the forget threshold are deleted.
 
+![Memory Viewer](screenshots/memory-interface.png)
+*Semantic, episodic, and procedural memory tabs*
+
 ### Knowledge Graph
 
 - LLM extracts subject–relation–object triples from every document chunk and chat message
 - Triples are stored as a directed multigraph (NetworkX) serialised to JSON per user
 - At query time, entities mentioned in the query are found in the graph and their 2-hop neighbourhoods are retrieved
 - Graph is written atomically (tmp file → rename) to prevent corruption
+
+![Knowledge Graph](screenshots/graph-visualization.png)
+*Interactive knowledge graph with entity relationships*
 
 ### Document Ingestion
 
@@ -275,6 +303,9 @@ Memory decay: an importance × recency × usage score is computed on retrieval. 
 4. Add chunks to per-user BM25 index
 5. Extract knowledge graph triples from each chunk → save graph
 6. Document ID returned — use it to delete the document later
+
+![Document Upload](screenshots/document-upload.png)
+*Document upload with chunking and indexing status*
 
 ---
 
@@ -297,6 +328,18 @@ Memory decay: an importance × recency × usage score is computed on retrieval. 
 | Authentication | Google OAuth 2.0 + JWT |
 | Text splitting | LangChain text splitters |
 | Deployment | Render (backend + static frontend) |
+
+---
+
+## Technical Achievements
+
+- **Hybrid RAG System**: Combined BM25 keyword search with vector embeddings using Reciprocal Rank Fusion
+- **Multi-Layer Memory**: Implemented 6 distinct memory types (semantic, episodic, procedural, documents, graph, session)
+- **Knowledge Graph**: Built entity-relationship extraction and 2-hop neighborhood retrieval
+- **Authentication Security**: JWT token rotation, httpOnly cookies, and OAuth 2.0 integration
+- **Cross-Domain CORS**: Configured proper CORS and cookie settings for multi-domain deployment
+- **Real-time Updates**: Implemented WebSocket-style polling for chat updates
+- **Responsive Design**: Dark-themed UI with smooth animations and tilt card effects
 
 ---
 
@@ -685,5 +728,34 @@ Log in with Google, create a conversation, send a message.
 5. **BM25 index is rebuilt at startup** — from ChromaDB data. Requires ChromaDB to be persistent for documents to be searchable after restart.
 
 6. **Single worker** — `--workers 1` is set because the in-process BM25 index and short-term memory are not shared across processes. For horizontal scaling, these would need to be externalised.
+
+---
+
+## Deployment Status
+
+✅ **Local Development**: Fully functional with all features working
+⚠️ **Production**: Authentication flow works locally; production deployment requires same-domain hosting for optimal OAuth callback handling. All core features demonstrated in local environment.
+
+---
+
+## Future Improvements
+
+- [ ] WebSocket implementation for real-time chat updates
+- [ ] Streaming responses from LLM for better UX
+- [ ] Advanced memory decay algorithms with machine learning
+- [ ] Multi-user collaboration features
+- [ ] Voice input/output integration
+- [ ] Mobile app development
+- [ ] Advanced graph algorithms (shortest path, centrality)
+- [ ] Document parsing for PDF, DOCX formats
+
+---
+
+## Connect
+
+- **GitHub**: [Your GitHub Profile](https://github.com/yourusername)
+- **LinkedIn**: [Your LinkedIn Profile](https://linkedin.com/in/yourprofile)
+- **Email**: your.email@example.com
+- **Demo Video**: [Watch on YouTube](https://youtube.com/your-demo-link)
 
 ---
