@@ -12,7 +12,7 @@ _Mnemos Main Screen_
 
 ## 🎬 Demo Video
 
-[Watch the 3-minute demo walkthrough](https://youtube.com/your-demo-link) - See the full authentication flow, RAG responses, document upload, and knowledge graph visualization.
+[Watch the 3-minute demo walkthrough](https://youtu.be/Y7brpSO0EKg) - See the full authentication flow, RAG responses, document upload, and knowledge graph visualization.
 
 ---
 
@@ -768,6 +768,6 @@ Log in with Google, create a conversation, send a message.
 - **GitHub**: [Your GitHub Profile](https://github.com/RohanG233)
 - **LinkedIn**: [Your LinkedIn Profile](www.linkedin.com/in/rohan-g-90731a246)
 - **Email**: rohang13102002@gmail.com
-- **Demo Video**: [Watch on YouTube](https://youtube.com/your-demo-link)
+- **Demo Video**: [Watch on YouTube](https://youtu.be/Y7brpSO0EKg)
 
 ---
